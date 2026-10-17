@@ -216,11 +216,16 @@ function EditorBody({
     tags: note.tags,
   });
   const saver = useRef<AutoSaver<Draft>>(null);
+  // 最近一次发出去保存的内容。服务端返回的是它时，是自己存的，不算别处改的。
+  const sent = useRef<Draft | null>(null);
+  // B243：别处（访客、别的窗口）改了这条笔记，自己又有没保存的修改。
+  const [remote, setRemote] = useState<Draft | null>(null);
   if (!saver.current)
     saver.current = new AutoSaver<Draft>({
       delay: 800,
       onState: setSaveState,
       save: async (d) => {
+        sent.current = d;
         const saved = await patchNote(note.id, d);
         lastSaved.current = d;
         qc.setQueryData(notesKeys.note(note.id), saved);
@@ -239,21 +244,35 @@ function EditorBody({
   };
 
   // 另一个窗口改了这条笔记：本地没有未保存的改动时，采用新内容。
+  // B243：有未保存的改动时先停下自动保存，让用户选，免得把访客改的内容盖掉。
   useEffect(() => {
     const server: Draft = {
       title: note.title,
       body: note.body,
       tags: note.tags,
     };
-    if (
-      saver.current?.dirty ||
-      uploading > 0 ||
-      sameDraft(server, lastSaved.current)
-    )
+    if (uploading > 0 || sameDraft(server, lastSaved.current)) return;
+    if (sent.current && sameDraft(server, sent.current)) return;
+    if (saver.current?.dirty) {
+      if (sameDraft(server, draftRef.current)) return;
+      saver.current.hold();
+      setRemote(server);
       return;
+    }
     lastSaved.current = server;
     setDraft(server);
   }, [note.title, note.body, note.tags]);
+
+  const resolveRemote = (useServer: boolean) => {
+    if (!remote) return;
+    saver.current!.release(useServer);
+    if (useServer) {
+      lastSaved.current = remote;
+      draftRef.current = remote;
+      setDraft(remote);
+    }
+    setRemote(null);
+  };
 
   // 离开时把没保存的内容存掉。页面关闭用 keepalive 请求。
   useEffect(() => {
@@ -1058,6 +1077,30 @@ function EditorBody({
               >
                 <WandSparkles size={15} />
                 <span>{t("AI polish")}</span>
+              </button>
+            </div>
+          )}
+          {remote && (
+            <div className="notes-remote-banner" role="alert">
+              <span>
+                {t(
+                  "This note was changed elsewhere. You have changes that are not saved yet.",
+                )}
+              </span>
+              <span className="xc-spacer" />
+              <button
+                type="button"
+                className="xc-btn small"
+                onClick={() => resolveRemote(false)}
+              >
+                {t("Keep mine")}
+              </button>
+              <button
+                type="button"
+                className="xc-btn small primary"
+                onClick={() => resolveRemote(true)}
+              >
+                {t("Load the latest")}
               </button>
             </div>
           )}

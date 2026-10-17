@@ -26,6 +26,7 @@ const EXPIRES: { id: Expires; label: string }[] = [
 /**
  * 笔记外链（B72）。外链打开只有笔记内容，可以设密码。
  * 已分享时显示链接、打开次数，可以改密码、改有效期、停止分享。
+ * B243：可以允许打开链接的人编辑标题和正文。
  */
 export default function ShareDialog({
   noteId,
@@ -42,8 +43,12 @@ export default function ShareDialog({
   const [expires, setExpires] = useState<Expires>("7d");
   const [usePassword, setUsePassword] = useState(false);
   const [password, setPassword] = useState("");
+  const [allowEdit, setAllowEdit] = useState(false);
   useEffect(() => {
-    if (share.data) setUsePassword(share.data.hasPassword);
+    if (share.data) {
+      setUsePassword(share.data.hasPassword);
+      setAllowEdit(!!share.data.allowEdit);
+    }
   }, [share.data]);
 
   const current = share.data;
@@ -53,7 +58,7 @@ export default function ShareDialog({
     (!!current?.hasPassword && password === "");
 
   const submit = () => {
-    const body: NoteShareInput = { expiresIn: expires };
+    const body: NoteShareInput = { expiresIn: expires, allowEdit };
     if (usePassword && password) body.password = password;
     if (!usePassword && current?.hasPassword) body.clearPassword = true;
     save.mutate(body, {
@@ -123,6 +128,7 @@ export default function ShareDialog({
                 : t("Never expires")}
               {" · "}
               {current.hasPassword ? t("Password set") : t("No password")}
+              {current.allowEdit && ` · ${t("Can edit")}`}
               {" · "}
               {t("Opened times")} {current.visits}
               {current.lastVisitAt &&
@@ -146,6 +152,23 @@ export default function ShareDialog({
             ))}
           </select>
         </label>
+        <label className="xc-check">
+          <input
+            type="checkbox"
+            checked={allowEdit}
+            onChange={(e) => setAllowEdit(e.target.checked)}
+          />
+          <span>{t("People with the link can edit")}</span>
+        </label>
+        {allowEdit && (
+          <small className="xc-check-hint">
+            {usePassword
+              ? t(
+                  "They can change the title and the text. They cannot upload files.",
+                )
+              : t("No password. Anyone with the link can edit.")}
+          </small>
+        )}
         <label className="xc-check">
           <input
             type="checkbox"

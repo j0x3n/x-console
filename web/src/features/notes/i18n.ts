@@ -26,6 +26,21 @@ registerZh({
   // B72：外链分享、浮窗
   "Shared by link": "已分享外链",
   "Share by link": "分享外链",
+  // B243 分享链接可以编辑
+  Open: "打开",
+  "Can edit": "可以编辑",
+  "People with the link can edit": "打开链接的人可以编辑",
+  "They can change the title and the text. They cannot upload files.":
+    "可以改标题和正文，不能上传文件",
+  "No password. Anyone with the link can edit.": "没设密码，拿到链接的人都能改",
+  "Your name (optional)": "你的称呼（可以不填）",
+  "This note was just changed": "这篇笔记刚被改过",
+  "Load the latest": "载入最新内容",
+  "What you wrote. Copy what you need.": "你刚才写的内容，需要的部分复制过去",
+  "Editing is turned off for this link": "这个链接已经不能编辑了",
+  "This note was changed elsewhere. You have changes that are not saved yet.":
+    "这篇笔记在别处被改过，你还有没保存的修改",
+  "Keep mine": "保留我的修改",
   // B242 导出图片
   "Export image": "导出图片",
   "Whole note": "整篇",

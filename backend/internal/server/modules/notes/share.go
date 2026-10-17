@@ -29,20 +29,21 @@ type noteShareRow struct {
 	Visits       int
 	LastVisitAt  *time.Time
 	CreatedAt    time.Time
+	AllowEdit    bool
 }
 
 var errNoteShare = httpx.NewError(404, "share_not_found", "分享链接已失效")
 
 func scanNoteShare(row interface{ Scan(...any) error }) (noteShareRow, error) {
 	var s noteShareRow
-	err := row.Scan(&s.NoteID, &s.Token, &s.PasswordHash, &s.ExpiresAt, &s.Visits, &s.LastVisitAt, &s.CreatedAt)
+	err := row.Scan(&s.NoteID, &s.Token, &s.PasswordHash, &s.ExpiresAt, &s.Visits, &s.LastVisitAt, &s.CreatedAt, &s.AllowEdit)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = errNoteShare
 	}
 	return s, err
 }
 
-const shareColumns = "note_id, token, password_hash, expires_at, visits, last_visit_at, created_at"
+const shareColumns = "note_id, token, password_hash, expires_at, visits, last_visit_at, created_at, allow_edit"
 
 func (m *Module) shareDTO(r *http.Request, s noteShareRow) api.NoteShare {
 	base := strings.TrimRight(m.d.Config.PublicURL, "/")
@@ -53,7 +54,7 @@ func (m *Module) shareDTO(r *http.Request, s noteShareRow) api.NoteShare {
 		}
 		base = proto + "://" + r.Host
 	}
-	return api.NoteShare{Token: s.Token, Url: base + "/n/" + s.Token, ExpiresAt: s.ExpiresAt, HasPassword: s.PasswordHash != nil, Visits: s.Visits, LastVisitAt: s.LastVisitAt, CreatedAt: s.CreatedAt}
+	return api.NoteShare{Token: s.Token, Url: base + "/n/" + s.Token, ExpiresAt: s.ExpiresAt, HasPassword: s.PasswordHash != nil, Visits: s.Visits, LastVisitAt: s.LastVisitAt, CreatedAt: s.CreatedAt, AllowEdit: new(s.AllowEdit)}
 }
 
 func (m *Module) GetNoteShare(w http.ResponseWriter, r *http.Request, id api.NoteId) {
@@ -70,7 +71,13 @@ func (m *Module) GetNoteShare(w http.ResponseWriter, r *http.Request, id api.Not
 }
 
 func (m *Module) putNoteShare(ctx context.Context, id int64, in api.NoteShareInput) (out noteShareRow, err error) {
-	defer func() { m.d.Audit.Record(ctx, "note.share.put", strconv.FormatInt(id, 10), nil, err) }()
+	defer func() {
+		var detail map[string]any
+		if in.AllowEdit != nil {
+			detail = map[string]any{"allowEdit": *in.AllowEdit}
+		}
+		m.d.Audit.Record(ctx, "note.share.put", strconv.FormatInt(id, 10), detail, err)
+	}()
 	if err = auth.RequireElevated(ctx); err != nil {
 		return out, err
 	}
@@ -128,8 +135,11 @@ func (m *Module) putNoteShare(ctx context.Context, id int64, in api.NoteShareInp
 	} else if deref(in.ClearPassword) {
 		out.PasswordHash = nil
 	}
+	if in.AllowEdit != nil {
+		out.AllowEdit = *in.AllowEdit
+	}
 	out.ExpiresAt = expires
-	_, err = tx.ExecContext(ctx, `INSERT INTO note_shares (note_id,token,password_hash,expires_at,created_at) VALUES (?,?,?,?,?) ON CONFLICT(note_id) DO UPDATE SET password_hash=excluded.password_hash,expires_at=excluded.expires_at`, id, out.Token, out.PasswordHash, expires, out.CreatedAt)
+	_, err = tx.ExecContext(ctx, `INSERT INTO note_shares (note_id,token,password_hash,expires_at,created_at,allow_edit) VALUES (?,?,?,?,?,?) ON CONFLICT(note_id) DO UPDATE SET password_hash=excluded.password_hash,expires_at=excluded.expires_at,allow_edit=excluded.allow_edit`, id, out.Token, out.PasswordHash, expires, out.CreatedAt, boolInt(out.AllowEdit))
 	if err != nil {
 		return out, err
 	}

@@ -14,3 +14,8 @@ func NoteFingerprintForTest(body string) string          { return noteFingerprin
 func ChangedEnoughForTest(previous, current string) bool { return changedEnough(previous, current) }
 
 var PlainText = plainText
+
+var (
+	RewriteNoteAttachments = rewriteNoteAttachments
+	RestoreNoteAttachments = restoreNoteAttachments
+)

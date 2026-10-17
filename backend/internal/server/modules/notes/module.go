@@ -41,6 +41,7 @@ type Module struct {
 	shareFailures map[string]noteShareFailure
 	shareVisits   map[[32]byte]time.Time
 	shareNow      func() time.Time
+	shareEditTold map[int64]time.Time // B243: when a visitor edit of a note was last notified
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -51,6 +52,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m.shareRates = map[string]noteShareRate{}
 	m.shareFailures = map[string]noteShareFailure{}
 	m.shareVisits = map[[32]byte]time.Time{}
+	m.shareEditTold = map[int64]time.Time{}
 	m.aiDelay = func(delay time.Duration, fn func()) func() {
 		timer := time.AfterFunc(delay, fn)
 		return func() { timer.Stop() }

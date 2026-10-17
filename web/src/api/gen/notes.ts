@@ -293,7 +293,12 @@ export interface paths {
          *     正文里的附件地址换成 /api/v1/public/notes/<token>/files/<id>?t=<t>。
          */
         get: operations["getPublicNote"];
-        put?: never;
+        /**
+         * @description B243 公开入口，访客改标题和正文。链接没开编辑回 403 note_edit_disabled。
+         *     有密码又没带有效的 t 时回 401 note_password_required。baseUpdatedAt 和笔记现在的修改时间不一样时
+         *     回 409 note_changed，笔记不变。正文里的公开附件地址保存前换回原来的地址。限流和读接口一样。
+         */
+        put: operations["editPublicNote"];
         post?: never;
         delete?: never;
         options?: never;
@@ -369,6 +374,8 @@ export interface components {
             /** @description 不传表示不改 */
             password?: string;
             clearPassword?: boolean;
+            /** @description B243。打开链接的人可以编辑。不传表示不改 */
+            allowEdit?: boolean;
         };
         NoteShare: {
             token: string;
@@ -385,6 +392,8 @@ export interface components {
             lastVisitAt?: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description B243 */
+            allowEdit?: boolean;
         };
         PublicNote: {
             title: string;
@@ -393,6 +402,20 @@ export interface components {
             color?: components["schemas"]["NoteColor"];
             /** Format: date-time */
             updatedAt: string;
+            /** @description B243。链接允许编辑 */
+            canEdit?: boolean;
+        };
+        PublicNoteEdit: {
+            title: string;
+            /** @description Markdown，可以带公开附件地址 */
+            body: string;
+            /**
+             * Format: date-time
+             * @description 开始编辑时拿到的 updatedAt
+             */
+            baseUpdatedAt: string;
+            /** @description 访客自己填的称呼 */
+            editorName?: string;
         };
         Note: {
             /** Format: int64 */
@@ -1163,6 +1186,36 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description 笔记内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicNote"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    editPublicNote: {
+        parameters: {
+            query?: {
+                /** @description 解锁后拿到的访问令牌 */
+                t?: string;
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicNoteEdit"];
+            };
+        };
+        responses: {
+            /** @description 保存后的笔记，和读接口返回的一样 */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -460,6 +460,32 @@ paths:
               schema: { $ref: "#/components/schemas/PublicNote" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: editPublicNote
+      security: []
+      tags: [notes]
+      description: |
+        B243 公开入口，访客改标题和正文。链接没开编辑回 403 note_edit_disabled。
+        有密码又没带有效的 t 时回 401 note_password_required。baseUpdatedAt 和笔记现在的修改时间不一样时
+        回 409 note_changed，笔记不变。正文里的公开附件地址保存前换回原来的地址。限流和读接口一样。
+      parameters:
+        - name: t
+          in: query
+          description: 解锁后拿到的访问令牌
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PublicNoteEdit" }
+      responses:
+        "200":
+          description: 保存后的笔记，和读接口返回的一样
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicNote" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /public/notes/{token}/unlock:
     parameters:
       - $ref: "#/components/parameters/NoteShareToken"
@@ -558,6 +584,7 @@ components:
         expiresIn: { type: string, enum: [1d, 7d, 30d, never] }
         password: { type: string, minLength: 4, maxLength: 32, description: 不传表示不改 }
         clearPassword: { type: boolean }
+        allowEdit: { type: boolean, description: B243。打开链接的人可以编辑。不传表示不改 }
     NoteShare:
       type: object
       required: [token, url, hasPassword, visits, createdAt]
@@ -569,6 +596,7 @@ components:
         visits: { type: integer }
         lastVisitAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
+        allowEdit: { type: boolean, description: B243 }
     PublicNote:
       type: object
       required: [title, body, updatedAt]
@@ -577,6 +605,15 @@ components:
         body: { type: string, description: Markdown，附件地址已经换成公开地址 }
         color: { $ref: "#/components/schemas/NoteColor" }
         updatedAt: { type: string, format: date-time }
+        canEdit: { type: boolean, description: B243。链接允许编辑 }
+    PublicNoteEdit:
+      type: object
+      required: [title, body, baseUpdatedAt]
+      properties:
+        title: { type: string }
+        body: { type: string, description: Markdown，可以带公开附件地址 }
+        baseUpdatedAt: { type: string, format: date-time, description: 开始编辑时拿到的 updatedAt }
+        editorName: { type: string, maxLength: 20, description: 访客自己填的称呼 }
     Note:
       type: object
       required: [id, title, body, pinned, tags, createdAt, updatedAt]

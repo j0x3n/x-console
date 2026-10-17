@@ -38,6 +38,45 @@ describe("AutoSaver", () => {
     expect(saver.dirty).toBe(false);
   });
 
+  it("B243: hold keeps changes until release, discard drops them", async () => {
+    const { saver, save, states } = setup();
+    saver.change("mine");
+    saver.hold();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(save).not.toHaveBeenCalled();
+    expect(saver.dirty).toBe(true);
+    saver.release();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save).toHaveBeenCalledWith("mine");
+
+    saver.change("again");
+    saver.hold();
+    saver.release(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(saver.dirty).toBe(false);
+    expect(states.at(-1)).toBe("idle");
+  });
+
+  it("B243: hold stops the follow-up save after one in flight", async () => {
+    let finish!: () => void;
+    const save = vi.fn(
+      (_draft: string) => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    const { saver } = setup(save);
+    saver.change("one");
+    await vi.advanceTimersByTimeAsync(800);
+    saver.change("one two");
+    saver.hold();
+    finish();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(saver.state).toBe("pending");
+    saver.release();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(save).toHaveBeenLastCalledWith("one two");
+  });
+
   it("saves again after an effect cleanup and setup replay", async () => {
     const { saver, save } = setup();
     saver.dispose();

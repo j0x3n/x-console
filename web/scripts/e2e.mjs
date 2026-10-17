@@ -2225,6 +2225,46 @@ try {
       assert.equal((await publicNote.json()).body, currentNote.body);
       assert.equal((await api(`/notes/${noteId}`)).shared, true);
 
+      // B243：允许编辑以后，没登录的浏览器打开链接改正文，自己打开的笔记跟着变
+      const editable = await page
+        .context()
+        .request.put(`${base}/api/v1/notes/${noteId}/share`, {
+          headers: { "X-Requested-With": "x-console" },
+          data: { expiresIn: "7d", allowEdit: true },
+        });
+      assert.equal(editable.status(), 200, await editable.text());
+      assert.equal((await editable.json()).allowEdit, true);
+      const guestContext = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+      });
+      try {
+        const guest = await guestContext.newPage();
+        await guest.goto(`${base}/n/${share.token}`);
+        await guest.getByLabel("密码").fill("e2e-note");
+        await guest.getByRole("button", { name: "打开" }).click();
+        await guest.getByRole("button", { name: "编辑" }).click();
+        await guest
+          .getByRole("textbox", { name: "笔记", exact: true })
+          .fill("访客改过的内容。");
+        await guest.getByRole("button", { name: "保存" }).click();
+        await guest.getByText("访客改过的内容。").waitFor();
+      } finally {
+        await guestContext.close();
+      }
+      await until(
+        "访客的修改写进笔记",
+        async () => (await api(`/notes/${noteId}`)).body === "访客改过的内容。",
+        5_000,
+      );
+      await until(
+        "自己打开的笔记载入访客的修改",
+        async () =>
+          (await page
+            .getByRole("textbox", { name: "笔记", exact: true })
+            .inputValue()) === "访客改过的内容。",
+        10_000,
+      );
+
       const stopped = await page
         .context()
         .request.delete(`${base}/api/v1/notes/${noteId}/share`, {

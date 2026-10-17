@@ -1417,6 +1417,7 @@ type NoteShare struct {
 	Visits       int64
 	LastVisitAt  *time.Time
 	CreatedAt    time.Time
+	AllowEdit    int64
 }
 
 type NoteTag struct {

@@ -241,6 +241,8 @@ type NoteKind string
 
 // NoteShare defines model for NoteShare.
 type NoteShare struct {
+	// AllowEdit B243
+	AllowEdit *bool     `json:"allowEdit,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 
 	// ExpiresAt 不返回表示永久
@@ -256,6 +258,8 @@ type NoteShare struct {
 
 // NoteShareInput defines model for NoteShareInput.
 type NoteShareInput struct {
+	// AllowEdit B243。打开链接的人可以编辑。不传表示不改
+	AllowEdit     *bool                   `json:"allowEdit,omitempty"`
 	ClearPassword *bool                   `json:"clearPassword,omitempty"`
 	ExpiresIn     NoteShareInputExpiresIn `json:"expiresIn"`
 
@@ -309,10 +313,26 @@ type PublicNote struct {
 	// Body Markdown，附件地址已经换成公开地址
 	Body string `json:"body"`
 
+	// CanEdit B243。链接允许编辑
+	CanEdit *bool `json:"canEdit,omitempty"`
+
 	// Color B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
 	Color     *NoteColor `json:"color,omitempty"`
 	Title     string     `json:"title"`
 	UpdatedAt time.Time  `json:"updatedAt"`
+}
+
+// PublicNoteEdit defines model for PublicNoteEdit.
+type PublicNoteEdit struct {
+	// BaseUpdatedAt 开始编辑时拿到的 updatedAt
+	BaseUpdatedAt time.Time `json:"baseUpdatedAt"`
+
+	// Body Markdown，可以带公开附件地址
+	Body string `json:"body"`
+
+	// EditorName 访客自己填的称呼
+	EditorName *string `json:"editorName,omitempty"`
+	Title      string  `json:"title"`
 }
 
 // TagColorInput defines model for TagColorInput.
@@ -430,6 +450,12 @@ type GetPublicNoteParams struct {
 	T *string `form:"t,omitempty" json:"t,omitempty"`
 }
 
+// EditPublicNoteParams defines parameters for EditPublicNote.
+type EditPublicNoteParams struct {
+	// T 解锁后拿到的访问令牌
+	T *string `form:"t,omitempty" json:"t,omitempty"`
+}
+
 // GetPublicNoteFileParams defines parameters for GetPublicNoteFile.
 type GetPublicNoteFileParams struct {
 	T *string `form:"t,omitempty" json:"t,omitempty"`
@@ -475,6 +501,9 @@ type NoteToIssueJSONRequestBody NoteToIssueJSONBody
 
 // NoteToReminderJSONRequestBody defines body for NoteToReminder for application/json ContentType.
 type NoteToReminderJSONRequestBody NoteToReminderJSONBody
+
+// EditPublicNoteJSONRequestBody defines body for EditPublicNote for application/json ContentType.
+type EditPublicNoteJSONRequestBody = PublicNoteEdit
 
 // UnlockPublicNoteJSONRequestBody defines body for UnlockPublicNote for application/json ContentType.
 type UnlockPublicNoteJSONRequestBody UnlockPublicNoteJSONBody
@@ -553,6 +582,9 @@ type ServerInterface interface {
 
 	// (GET /public/notes/{token})
 	GetPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken, params GetPublicNoteParams)
+
+	// (PUT /public/notes/{token})
+	EditPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken, params EditPublicNoteParams)
 
 	// (GET /public/notes/{token}/files/{attachmentId})
 	GetPublicNoteFile(w http.ResponseWriter, r *http.Request, token NoteShareToken, attachmentId AttachmentId, params GetPublicNoteFileParams)
@@ -682,6 +714,11 @@ func (_ Unimplemented) NoteToReminder(w http.ResponseWriter, r *http.Request, no
 
 // (GET /public/notes/{token})
 func (_ Unimplemented) GetPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken, params GetPublicNoteParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /public/notes/{token})
+func (_ Unimplemented) EditPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken, params EditPublicNoteParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1353,6 +1390,48 @@ func (siw *ServerInterfaceWrapper) GetPublicNote(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// EditPublicNote operation middleware
+func (siw *ServerInterfaceWrapper) EditPublicNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token NoteShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EditPublicNoteParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EditPublicNote(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPublicNoteFile operation middleware
 func (siw *ServerInterfaceWrapper) GetPublicNoteFile(w http.ResponseWriter, r *http.Request) {
 
@@ -1627,6 +1706,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/public/notes/{token}", wrapper.GetPublicNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/public/notes/{token}", wrapper.EditPublicNote)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/public/notes/{token}/unlock", wrapper.UnlockPublicNote)

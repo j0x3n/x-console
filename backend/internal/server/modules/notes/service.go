@@ -166,6 +166,19 @@ type notePatch struct {
 	Tags     *[]string
 	Kind     *api.NoteKind
 	Color    *api.NoteColor
+	// B243: set by the public edit of a share link. BaseUpdatedAt makes the
+	// update fail with note_changed when the note moved on; Source goes into
+	// the note.updated event; the caller writes the audit entry.
+	BaseUpdatedAt *time.Time
+	Source        string
+}
+
+var errNoteChanged = httpx.NewError(409, "note_changed", "这篇笔记刚被改过")
+
+// sameInstant compares times at the precision of the API (milliseconds), so
+// a client that lost the nanoseconds still matches.
+func sameInstant(a, b time.Time) bool {
+	return a.UTC().Truncate(time.Millisecond).Equal(b.UTC().Truncate(time.Millisecond))
 }
 
 func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api.Note, err error) {
@@ -175,7 +188,11 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 	if p.Color != nil && !p.Color.Valid() {
 		return out, httpx.Invalid("背景色不正确")
 	}
-	defer func() { m.d.Audit.Record(ctx, "note.update", strconv.FormatInt(id, 10), nil, err) }()
+	defer func() {
+		if p.Source == "" {
+			m.d.Audit.Record(ctx, "note.update", strconv.FormatInt(id, 10), nil, err)
+		}
+	}()
 	var tags []string
 	if p.Tags != nil {
 		if tags, err = cleanTags(*p.Tags); err != nil {
@@ -194,7 +211,13 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 			return notFound(err)
 		}
 		if n.Hidden != 0 && !auth.VaultUnlocked(ctx) {
+			if p.Source == "share" {
+				return errNoteShare
+			}
 			return httpx.ErrNotFound
+		}
+		if p.BaseUpdatedAt != nil && !sameInstant(n.UpdatedAt, *p.BaseUpdatedAt) {
+			return errNoteChanged
 		}
 		wasHidden := n.Hidden != 0
 		if p.Hidden != nil {
@@ -281,6 +304,11 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 	}
 	if changedHidden != nil {
 		m.d.Bus.Publish("note.updated", map[string]any{"id": id, "hidden": true})
+	} else if p.Source != "" && (out.Hidden == nil || !*out.Hidden) {
+		m.d.Bus.Publish("note.updated", struct {
+			api.Note
+			Source string `json:"source"`
+		}{out, p.Source})
 	} else {
 		m.publishNote("note.updated", out)
 	}

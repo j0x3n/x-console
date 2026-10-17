@@ -19,6 +19,7 @@ export class AutoSaver<T> {
   private inFlight: Promise<void> | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
+  private held = false;
   state: SaveState = "idle";
 
   constructor(private opts: AutoSaverOptions<T>) {}
@@ -51,6 +52,23 @@ export class AutoSaver<T> {
     clearTimeout(this.timer);
   }
 
+  /** B243：先不自动保存，改动留着，等用户选（别处改了这条笔记）。flush 仍然会保存。 */
+  hold() {
+    this.held = true;
+    clearTimeout(this.timer);
+  }
+
+  /** 接着自动保存。discard 为 true 时丢掉还没发出去的改动。 */
+  release(discard = false) {
+    this.held = false;
+    if (discard) {
+      this.latest = null;
+      if (!this.inFlight) this.setState("idle");
+    } else if (this.latest !== null && !this.inFlight) {
+      this.schedule(this.opts.delay);
+    }
+  }
+
   /** React StrictMode may replay an effect without remounting this saver. */
   resume() {
     if (!this.disposed) return;
@@ -60,7 +78,8 @@ export class AutoSaver<T> {
 
   private schedule(delay: number) {
     clearTimeout(this.timer);
-    if (!this.disposed) this.timer = setTimeout(() => void this.run(), delay);
+    if (!this.disposed && !this.held)
+      this.timer = setTimeout(() => void this.run(), delay);
   }
 
   private setState(state: SaveState) {
@@ -77,7 +96,11 @@ export class AutoSaver<T> {
     this.inFlight = this.opts.save(draft).then(
       () => {
         this.inFlight = null;
-        if (this.latest !== null) return this.run();
+        if (this.latest !== null) {
+          if (!this.held) return this.run();
+          this.setState("pending");
+          return;
+        }
         this.setState("saved");
       },
       () => {
