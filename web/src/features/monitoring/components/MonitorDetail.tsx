@@ -9,11 +9,12 @@ import {
   useCheckMonitor,
   useDeleteMonitor,
   useMonitorResults,
+  useMonitors,
   useSaveMonitor,
   type Monitor,
   type ResultRange,
 } from "../api";
-import { expiryTone, monitorTone } from "../lib";
+import { expiryTone, monitorTone, registrableDomain } from "../lib";
 import { longDate, shortDateTime, showError } from "./common";
 import HistoryChart from "./HistoryChart";
 import MonitorDialog from "./MonitorDialog";
@@ -37,7 +38,26 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
   const check = useCheckMonitor();
   const save = useSaveMonitor();
   const remove = useDeleteMonitor();
+  const monitors = useMonitors();
   if (!monitor) return null;
+
+  // 证书和域名在列表里是一行，暂停和恢复要一起改，不然另一项还会计入左栏的数字。
+  const toggleEnabled = () => {
+    const enabled = !monitor.enabled;
+    const group =
+      monitor.kind === "http"
+        ? [monitor]
+        : (monitors.data ?? []).filter(
+            (m) =>
+              m.kind !== "http" &&
+              registrableDomain(m.target) === registrableDomain(monitor.target),
+          );
+    Promise.all(
+      (group.length ? group : [monitor])
+        .filter((m) => m.enabled !== enabled)
+        .map((m) => save.mutateAsync({ id: m.id, patch: { enabled } })),
+    ).then(() => toast(enabled ? t("Resumed") : t("Paused")), showError);
+  };
 
   const latest = results.data?.items.at(-1);
   const recent = [...(results.data?.items ?? [])].reverse().slice(0, 20);
@@ -192,16 +212,7 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
           <button
             className="xc-btn"
             disabled={save.isPending}
-            onClick={() =>
-              save.mutate(
-                { id: monitor.id, patch: { enabled: !monitor.enabled } },
-                {
-                  onSuccess: () =>
-                    toast(monitor.enabled ? t("Paused") : t("Resumed")),
-                  onError: showError,
-                },
-              )
-            }
+            onClick={toggleEnabled}
           >
             {monitor.enabled ? <Pause size={14} /> : <Play size={14} />}{" "}
             {monitor.enabled ? t("Pause") : t("Resume")}
