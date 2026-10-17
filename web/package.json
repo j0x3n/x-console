@@ -29,6 +29,7 @@
     "codemirror": "^6.0.2",
     "dompurify": "3.2.6",
     "lucide-react": "^0.468.0",
+    "modern-screenshot": "4.7.0",
     "openapi-fetch": "^0.17.0",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",

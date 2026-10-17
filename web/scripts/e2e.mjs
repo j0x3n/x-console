@@ -2174,6 +2174,24 @@ try {
       );
     }
 
+    setStage("B242 笔记导出图片");
+    {
+      await page.getByRole("button", { name: "更多", exact: true }).click();
+      await page.getByRole("menuitem", { name: "导出图片" }).click();
+      const dialog = page.getByRole("dialog", { name: "导出图片" });
+      await dialog.getByAltText("图片预览").waitFor({ timeout: 20_000 });
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        dialog.getByRole("button", { name: "保存图片" }).click(),
+      ]);
+      assert.match(download.suggestedFilename(), /^端到端笔记-\d{8}\.png$/);
+      const png = readFileSync(await download.path());
+      // PNG 文件头，IHDR 里的宽度在第 16 到 19 字节
+      assert.equal(png.subarray(1, 4).toString(), "PNG");
+      assert.equal(png.readUInt32BE(16), 1080);
+      await dialog.getByRole("button", { name: "关闭" }).click();
+    }
+
     setStage("B72 笔记外链分享");
     {
       const elevate = await page
@@ -2206,6 +2224,7 @@ try {
       assert.equal(publicNote.status, 200);
       assert.equal((await publicNote.json()).body, currentNote.body);
       assert.equal((await api(`/notes/${noteId}`)).shared, true);
+
       const stopped = await page
         .context()
         .request.delete(`${base}/api/v1/notes/${noteId}/share`, {

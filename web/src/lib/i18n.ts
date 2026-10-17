@@ -39,6 +39,9 @@ registerZh({
   Unfold: "展开",
   "Show all {n} lines": "展开全部（{n} 行）",
   "Hidden content": "隐藏内容",
+  // B242：截图模式里的视频、音频
+  Video: "视频",
+  Audio: "音频",
   "Hidden: {title}. Click to show.": "已隐藏：{title}，点击显示",
   "Shown: {title}. Click to hide.": "已显示：{title}，点击收起",
   "Callout note": "说明",

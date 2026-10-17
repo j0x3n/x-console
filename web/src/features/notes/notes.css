@@ -968,35 +968,46 @@
 }
 
 /* ---- B74：背景色。只用这里的颜色，深浅主题各一套 ---- */
+/* B242：--note-bg-light 是浅色那套，导出图片时不管界面主题都用它 */
 .note-bg-red {
   --note-bg: #fde4e1;
+  --note-bg-light: #fde4e1;
 }
 .note-bg-orange {
   --note-bg: #fde9d6;
+  --note-bg-light: #fde9d6;
 }
 .note-bg-yellow {
   --note-bg: #fdf5c4;
+  --note-bg-light: #fdf5c4;
 }
 .note-bg-green {
   --note-bg: #e3f3d8;
+  --note-bg-light: #e3f3d8;
 }
 .note-bg-teal {
   --note-bg: #d4eee8;
+  --note-bg-light: #d4eee8;
 }
 .note-bg-blue {
   --note-bg: #dae9f4;
+  --note-bg-light: #dae9f4;
 }
 .note-bg-purple {
   --note-bg: #ebdff3;
+  --note-bg-light: #ebdff3;
 }
 .note-bg-pink {
   --note-bg: #fae3ee;
+  --note-bg-light: #fae3ee;
 }
 .note-bg-brown {
   --note-bg: #eee6d8;
+  --note-bg-light: #eee6d8;
 }
 .note-bg-gray {
   --note-bg: #e9e9ec;
+  --note-bg-light: #e9e9ec;
 }
 html[data-theme="dark"] .note-bg-red {
   --note-bg: #5c1f27;
@@ -1744,4 +1755,135 @@ html[data-theme="dark"] .note-bg-gray {
   .notes-quick-wrap {
     display: none;
   }
+}
+
+/* ---- B242：导出图片 ---- */
+.notes-img-export {
+  display: grid;
+  gap: 12px;
+}
+.notes-img-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+.notes-img-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.notes-img-preview {
+  display: grid;
+  place-items: start center;
+  min-height: 160px;
+  max-height: 56vh;
+  overflow: auto;
+  padding: 12px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+@media (max-width: 720px) {
+  .notes-img-preview {
+    max-height: 38dvh;
+  }
+}
+.notes-img-preview-img {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  border: 1px solid var(--xc-border);
+}
+/* 在屏幕外排版，截的是这一份 */
+.notes-img-stage {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  pointer-events: none;
+}
+.notes-img-sheet {
+  /* 图片一律用浅色那套，不跟着界面的深色模式。值和 styles/tokens.css 的浅色一样 */
+  --xc-bg: #ffffff;
+  --xc-panel: #fafafa;
+  --xc-surface: #ffffff;
+  --xc-surface-2: #fafafa;
+  --xc-elevated: #ffffff;
+  --xc-border: #ececee;
+  --xc-border-strong: #e4e4e7;
+  --xc-text: #18181b;
+  --xc-text-2: #3f3f46;
+  --xc-muted: #71717a;
+  --xc-faint: #a1a1aa;
+  --xc-accent: #4f46e5;
+  --xc-accent-soft: #4f46e51a;
+  --xc-accent-text: #4338ca;
+  --xc-on-accent: #ffffff;
+  --xc-ok: #16a34a;
+  --xc-ok-soft: #16a34a1a;
+  --xc-warn: #b45309;
+  --xc-warn-soft: #b453091a;
+  --xc-danger: #dc2626;
+  --xc-danger-soft: #dc26261a;
+  --xc-info: #2563eb;
+  --xc-info-soft: #2563eb1a;
+  /* 字号固定用桌面那套，手机上导出的图和电脑上一样 */
+  --fs-11: 11px;
+  --fs-11-5: 11.5px;
+  --fs-12: 12px;
+  --fs-12-5: 12.5px;
+  --fs-13: 13px;
+  --fs-13-5: 13.5px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-17: 17px;
+  --fs-18: 18px;
+  width: 400px;
+  box-sizing: border-box;
+  padding: 24px;
+  background: var(--note-bg-light, #ffffff);
+  color: var(--xc-text);
+  font-family: var(--xc-sans);
+  font-size: var(--fs-15);
+  line-height: 1.7;
+}
+.notes-img-sheet .xc-md img {
+  max-width: 100%;
+  height: auto;
+}
+.notes-img-sheet .xc-md-table table {
+  width: 100%;
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+}
+.notes-img-sheet a {
+  color: inherit;
+  text-decoration: underline;
+}
+.notes-img-title {
+  margin-bottom: 6px;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.notes-img-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 14px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.notes-img-tag {
+  color: var(--xc-accent-text);
+}
+.notes-img-brand {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--xc-text) 12%, transparent);
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  text-align: center;
 }

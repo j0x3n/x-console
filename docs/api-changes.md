@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B242（2026-10-17）：公共组件 `components/markdown/Markdown` 加可选参数 `snapshot: { showHidden }`，截图用：没有按钮，代码块不折叠也不懒加载图片，视频音频显示成一行字，待办显示成静态的勾选框，隐藏块按 `showHidden` 展开或整块不显示。不传时和原来一样。`markdown.css` 加了这几种的样式。`lib/i18n.ts` 加 `Video`、`Audio` 两个词条。`web/package.json` 加依赖 `modern-screenshot`（锁定 4.7.0）。不改接口，不加迁移。
+
 - 修复（2026-10-16）：待审核的 Issue 不再算到期和过期。`contracts.Issues.ListDue` 不再返回 `in_review`（每日计划和晨报跟着变）；`GET /issues?due=overdue` 不含待审核；到期通知和提醒页的 Issue 到期事项也不含待审核。退回其他状态后照常算。不改字段，不加迁移。
 
 - 修复（2026-10-16）：公共顶栏 `components/layout/Topbar.tsx` 在有具体名称（详情页）时给 `header` 加 `has-detail` 类；`styles/ui.css` 在 720px 以下按这个类隐藏模块名、上级和分隔的“/”，只留具体名称。电脑上不变。不改接口。

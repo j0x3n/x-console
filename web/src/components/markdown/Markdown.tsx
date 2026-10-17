@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
   AlertTriangle,
+  Check,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -28,6 +29,11 @@ interface Options {
   onToggleTask?: (index: number) => void;
   /** 点图片时调用。不传时在页内打开大图（B54）。 */
   onImageClick?: (src: string, alt: string) => void;
+  /**
+   * B242 截图用：没有按钮，代码块不折叠，视频音频显示成一行字，图片不懒加载。
+   * showHidden 为 true 时隐藏块直接展开，为 false 时整块不显示。
+   */
+  snapshot?: { showHidden: boolean };
 }
 
 /** 渲染 Markdown。站内路径用路由跳转，外部链接在新标签页打开。 */
@@ -37,17 +43,21 @@ export default function Markdown({
   className = "",
   onToggleTask,
   onImageClick,
+  snapshot,
 }: {
   source: string;
   empty?: ReactNode;
   className?: string;
 } & Options) {
+  const t = useT();
   const blocks = useMemo(() => parseMarkdown(source), [source]);
   const images = useMemo(() => collectImages(blocks), [blocks]);
   const [open, setOpen] = useState<number | null>(null);
   if (blocks.length === 0 && empty) return <>{empty}</>;
   const ctx: Ctx = {
     task: 0,
+    snapshot,
+    t,
     onToggleTask,
     onImageClick:
       onImageClick ??
@@ -57,7 +67,7 @@ export default function Markdown({
       }),
   };
   return (
-    <div className={`xc-md ${className}`}>
+    <div className={`xc-md${snapshot ? " snapshot" : ""} ${className}`}>
       {renderBlocks(blocks, ctx)}
       {open !== null && (
         <ImageLightbox
@@ -72,6 +82,7 @@ export default function Markdown({
 
 interface Ctx extends Options {
   task: number;
+  t: (key: string) => string;
 }
 
 function renderBlocks(blocks: Block[], ctx: Ctx): ReactNode {
@@ -89,7 +100,18 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
     case "paragraph":
       return <p>{renderInline(block.children, ctx)}</p>;
     case "code":
-      return <CodeBlock lang={block.lang} text={block.text} />;
+      return ctx.snapshot ? (
+        <div className="xc-md-code">
+          <div className="xc-md-code-bar">
+            <span>{block.lang || "text"}</span>
+          </div>
+          <pre>
+            <code data-lang={block.lang || undefined}>{block.text}</code>
+          </pre>
+        </div>
+      ) : (
+        <CodeBlock lang={block.lang} text={block.text} />
+      );
     case "table":
       return (
         <div className="xc-md-table">
@@ -124,6 +146,18 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
         </div>
       );
     case "container":
+      if (block.kind === "hidden" && ctx.snapshot)
+        return ctx.snapshot.showHidden ? (
+          <div className="xc-md-hidden open">
+            <div className="xc-md-hidden-title">
+              <EyeOff size={14} />
+              <span>{block.title || ctx.t("Hidden content")}</span>
+            </div>
+            <div className="xc-md-hidden-body">
+              {renderBlocks(block.blocks, ctx)}
+            </div>
+          </div>
+        ) : null;
       return block.kind === "hidden" ? (
         <HiddenBlock title={block.title}>
           {renderBlocks(block.blocks, ctx)}
@@ -159,7 +193,15 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
                 : undefined
             }
           >
-            {item.checked !== null && (
+            {item.checked !== null && ctx.snapshot && (
+              <span
+                className={`xc-md-task-box${item.checked ? " on" : ""}`}
+                aria-hidden
+              >
+                {item.checked && <Check size={11} strokeWidth={3} />}
+              </span>
+            )}
+            {item.checked !== null && !ctx.snapshot && (
               <input
                 type="checkbox"
                 checked={item.checked}
@@ -201,6 +243,12 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
       case "image": {
         // 视频、音频用图片的写法，按后缀显示成播放器（B74）
         const media = mediaKind(node.src, node.alt);
+        if (media && ctx.snapshot)
+          return (
+            <span key={i} className="xc-md-media-text">
+              {`${ctx.t(media === "video" ? "Video" : "Audio")}：${mediaName(node.src, node.alt)}`}
+            </span>
+          );
         if (media === "video")
           return (
             <video
@@ -230,7 +278,7 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
             key={i}
             src={isUploadedFile(node.src) ? thumbnailSrc(node.src) : node.src}
             alt={node.alt}
-            loading="lazy"
+            loading={ctx.snapshot ? undefined : "lazy"}
             className="xc-md-zoom"
             onClick={(e) => {
               e.preventDefault();
@@ -252,6 +300,17 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
         );
     }
   });
+}
+
+/** 截图里视频、音频显示的名字：有说明用说明，没有用文件名。 */
+function mediaName(src: string, alt: string): string {
+  if (alt.trim()) return alt.trim();
+  const path = src.split(/[?#]/)[0];
+  try {
+    return decodeURIComponent(path.slice(path.lastIndexOf("/") + 1)) || src;
+  } catch {
+    return path.slice(path.lastIndexOf("/") + 1) || src;
+  }
 }
 
 /** 按出现顺序取出全部图片，大图层里左右切换用。 */

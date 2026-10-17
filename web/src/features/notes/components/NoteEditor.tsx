@@ -24,6 +24,7 @@ import {
   Eye,
   EyeOff,
   Heading2,
+  ImageDown,
   ImagePlus,
   Italic,
   Link2,
@@ -70,6 +71,8 @@ import CardFromSelection from "../../cards/SelectionCard";
 import ColorPicker from "../ColorPicker";
 import { noteBgClass } from "../noteColors";
 import ShareDialog from "./ShareDialog";
+import ImageExportDialog from "./ImageExportDialog";
+import { previewSelection, textareaSelection } from "../imageExport";
 import InsertMenu from "../../../components/markdown/InsertMenu";
 import { AutoSaver, type SaveState } from "../autosave";
 import {
@@ -194,9 +197,11 @@ function EditorBody({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [menuOpen]);
-  const [dialog, setDialog] = useState<"issue" | "reminder" | "share" | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<
+    "issue" | "reminder" | "share" | "image" | null
+  >(null);
+  // B242：点“更多”时记下选中的内容，菜单里点“导出图片”时可能已经没有选区了。
+  const imageSelection = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
   // B80：正文看到哪里，切回来还在那里
   useKeepScroll(scrollRef, `notes.body:${note.id}`);
@@ -721,6 +726,11 @@ function EditorBody({
             className="xc-btn ghost small"
             aria-label={t("More")}
             aria-expanded={menuOpen}
+            onPointerDown={() => {
+              imageSelection.current =
+                textareaSelection(bodyRef.current) ||
+                previewSelection(draftRef.current.body, scrollRef.current);
+            }}
             onClick={() => setMenuOpen((v) => !v)}
           >
             <Ellipsis size={15} />
@@ -754,6 +764,12 @@ function EditorBody({
                     <Share2 size={14} /> {t("Share by link")}
                   </button>
                 )}
+                <button
+                  role="menuitem"
+                  onClick={() => flushThen(() => setDialog("image"))}
+                >
+                  <ImageDown size={14} /> {t("Export image")}
+                </button>
                 <button
                   role="menuitem"
                   onClick={() =>
@@ -1108,6 +1124,19 @@ function EditorBody({
       )}
       {dialog === "share" && (
         <ShareDialog noteId={note.id} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "image" && (
+        <ImageExportDialog
+          note={{
+            title: draft.title,
+            body: draft.body,
+            tags: draft.tags,
+            color: note.color,
+            updatedAt: note.updatedAt,
+          }}
+          selection={imageSelection.current}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog === "reminder" && (
         <ToReminderDialog

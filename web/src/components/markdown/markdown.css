@@ -323,3 +323,37 @@
     order: -1;
   }
 }
+
+/* B242 截图模式（snapshot）：没有按钮，代码换行，视频音频显示成一行字 */
+.xc-md.snapshot pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.xc-md-hidden-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  color: var(--xc-muted);
+  font-size: 0.95em;
+}
+.xc-md-media-text {
+  display: block;
+  margin: 4px 0;
+  color: var(--xc-muted);
+}
+.xc-md-task-box {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  margin-right: 6px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+.xc-md-task-box.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent);
+  color: var(--xc-on-accent);
+}
