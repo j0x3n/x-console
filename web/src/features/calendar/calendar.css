@@ -746,3 +746,10 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* 手机上顶栏不放专注按钮，给左边的标题留位置 */
+@media (max-width: 720px) {
+  .focus-wrap {
+    display: none;
+  }
+}

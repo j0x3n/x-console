@@ -1206,3 +1206,11 @@
 .music-mini-queue .music-queue-main {
   gap: 8px;
 }
+
+/* 手机上顶栏不放播放器按钮，给左边的标题留位置 */
+@media (max-width: 720px) {
+  .music-top,
+  .music-top-link {
+    display: none;
+  }
+}

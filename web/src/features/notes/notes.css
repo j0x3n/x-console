@@ -1738,3 +1738,10 @@ html[data-theme="dark"] .note-bg-gray {
 .notes-quote-modes .xc-check-hint {
   margin: 0;
 }
+
+/* 手机上顶栏不放快速记录按钮，给左边的标题留位置 */
+@media (max-width: 720px) {
+  .notes-quick-wrap {
+    display: none;
+  }
+}

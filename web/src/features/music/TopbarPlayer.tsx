@@ -282,7 +282,7 @@ export default function TopbarPlayer() {
     return (
       <Link
         to="/music"
-        className="icon-button"
+        className="icon-button music-top-link"
         aria-label={t("Music")}
         title={t("Music")}
       >
