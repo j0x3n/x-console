@@ -69,7 +69,7 @@ wc -l tweets.jsonl
 
 打完补丁后，跑一次 `x-list-b-scrape.sh`，`tweets.jsonl` 应该多出新行。补丁之前已经见过的推文不会补进来，页面里的推文从打补丁以后开始积累。
 
-补丁由你自己提交到 x-assistant 仓库。ai-news 不用改。
+这个补丁 2026-10-17 已经提交到 x-assistant 的 `main`（`2b148c5`）。虚拟机上的目录如果是这个仓库的 git 副本，`git pull` 就行，不用再打补丁。ai-news 不用改。
 
 ## 接口
 
