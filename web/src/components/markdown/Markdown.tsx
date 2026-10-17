@@ -1,4 +1,11 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 import {
   AlertTriangle,
@@ -114,7 +121,7 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
       );
     case "table":
       return (
-        <div className="xc-md-table">
+        <TableBlock snapshot={!!ctx.snapshot}>
           <table>
             <thead>
               <tr>
@@ -143,7 +150,7 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableBlock>
       );
     case "container":
       if (block.kind === "hidden" && ctx.snapshot)
@@ -388,6 +395,42 @@ function CodeBlock({ lang, text }: { lang: string; text: string }) {
           {t("Show all {n} lines").replace("{n}", String(lines))}
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * 表格的滚动容器（B245）。右边还有没露出来的列时加 more，样式里把右边缘淡出，
+ * 提示可以往右滑。截图模式不用。
+ */
+function TableBlock({
+  snapshot,
+  children,
+}: {
+  snapshot: boolean;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || snapshot) return;
+    const check = () =>
+      setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(check);
+    observer?.observe(el);
+    if (el.firstElementChild) observer?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener("scroll", check);
+      observer?.disconnect();
+    };
+  }, [snapshot]);
+  return (
+    <div ref={ref} className={`xc-md-table${more ? " more" : ""}`}>
+      {children}
     </div>
   );
 }

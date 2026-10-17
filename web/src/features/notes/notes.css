@@ -1071,6 +1071,13 @@ html[data-theme="dark"] .note-bg-gray {
 .notes-editor.note-bg .notes-editor-bar {
   background: var(--note-bg);
 }
+/* B245：Markdown 表格固定列的底色跟着笔记和便签 */
+.notes-editor.note-bg {
+  --xc-md-bg: var(--note-bg);
+}
+.notes-memo {
+  --xc-md-bg: var(--note-bg, var(--xc-surface));
+}
 .notes-editor.note-bg .notes-toolbar {
   border-color: color-mix(in srgb, var(--xc-text) 12%, transparent);
 }

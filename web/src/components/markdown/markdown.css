@@ -188,6 +188,45 @@
   background: var(--xc-surface-2);
   font-weight: 600;
 }
+/* B245：右边还有列时边缘淡出，提示可以往右滑 */
+.xc-md-table.more {
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent);
+}
+/* 固定列要不透明的底色：默认是内容区底色，卡片、弹窗、彩色笔记各自换掉 */
+.xc-card {
+  --xc-md-bg: var(--xc-surface);
+}
+.xc-dialog {
+  --xc-md-bg: var(--xc-elevated);
+}
+/*
+ * 手机上第一列滑动时固定在左边，其余列至少 6 个字宽，不再一行一两个字。
+ * 合并的边框不跟着固定列走，滑动时左边会漏出底下的字，所以每格自己画边框。
+ */
+@media (max-width: 640px) {
+  .xc-md:not(.snapshot) .xc-md-table table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .xc-md:not(.snapshot) .xc-md-table :is(th, td) {
+    border-width: 0 1px 1px 0;
+  }
+  .xc-md:not(.snapshot) .xc-md-table th {
+    border-top-width: 1px;
+  }
+  .xc-md:not(.snapshot) .xc-md-table td:not(:first-child) {
+    min-width: 6em;
+  }
+  .xc-md:not(.snapshot) .xc-md-table :is(th, td):first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    border-left-width: 1px;
+  }
+  .xc-md:not(.snapshot) .xc-md-table td:first-child {
+    background: var(--xc-md-bg, var(--xc-bg));
+  }
+}
 .xc-md mark {
   padding: 0 2px;
   border-radius: 3px;
