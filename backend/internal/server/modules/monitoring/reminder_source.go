@@ -29,6 +29,9 @@ func (s reminderSource) Upcoming(ctx context.Context, from, until time.Time) ([]
 			return nil, err
 		}
 		at := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+		if withTime, ok := renewalAt(date, item.RenewalTime, loc); ok {
+			at = withTime
+		}
 		if !at.Before(until) {
 			continue
 		}

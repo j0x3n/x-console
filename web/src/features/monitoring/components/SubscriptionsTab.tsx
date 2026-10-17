@@ -29,7 +29,7 @@ import {
   sortSubscriptions,
 } from "../lib";
 import {
-  longDate,
+  renewalText,
   shortDateTime,
   showError,
   useIdParam,
@@ -142,7 +142,9 @@ function SubscriptionRow({
             {daysText(t, s.daysLeft)}
           </span>
         )}
-        <small className="xc-muted">{longDate(s.nextRenewal, language)}</small>
+        <small className="xc-muted">
+          {renewalText(s.nextRenewal, s.nextRenewalTime, language)}
+        </small>
       </span>
     </button>
   );
@@ -215,7 +217,9 @@ function SubscriptionDetail({
           </div>
           <div>
             <small>{t("Next renewal")}</small>
-            <strong>{longDate(sub.nextRenewal, language)}</strong>
+            <strong>
+              {renewalText(sub.nextRenewal, sub.nextRenewalTime, language)}
+            </strong>
           </div>
           <div>
             <small>{t("Per month")}</small>

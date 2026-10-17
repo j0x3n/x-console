@@ -1802,6 +1802,7 @@ type Subscription struct {
 	CycleCount       int64
 	CycleUnit        string
 	Account          string
+	RenewalTime      string
 }
 
 type SubscriptionCategory struct {

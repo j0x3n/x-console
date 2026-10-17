@@ -119,20 +119,20 @@ ON CONFLICT (monitor_id) DO UPDATE SET
 
 -- name: CreateSubscription :one
 INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
-                           next_renewal, remind_days_before, url, note, account, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           next_renewal, renewal_time, remind_days_before, url, note, account, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSubscription :one
 SELECT * FROM subscriptions WHERE id = ?;
 
 -- name: ListSubscriptions :many
-SELECT * FROM subscriptions ORDER BY next_renewal, id;
+SELECT * FROM subscriptions ORDER BY next_renewal, renewal_time, id;
 
 -- name: UpdateSubscription :one
 UPDATE subscriptions
 SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
-    cycle_unit = ?, next_renewal = ?,
+    cycle_unit = ?, next_renewal = ?, renewal_time = ?,
     remind_days_before = ?, reminded = ?, url = ?, note = ?, account = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;

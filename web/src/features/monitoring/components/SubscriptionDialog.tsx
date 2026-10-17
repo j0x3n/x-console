@@ -83,6 +83,7 @@ export default function SubscriptionDialog({
   const [count, setCount] = useState("1");
   const [unit, setUnit] = useState<CycleUnit>("month");
   const [next, setNext] = useState("");
+  const [nextTime, setNextTime] = useState("");
   const [remind, setRemind] = useState<number[]>(defaultRemind);
   const [autoRenew, setAutoRenew] = useState(false);
   const [url, setUrl] = useState("");
@@ -106,6 +107,7 @@ export default function SubscriptionDialog({
     setCount(String(c.count));
     setUnit(c.unit);
     setNext(sub?.nextRenewal ?? todayPlus(30));
+    setNextTime(sub?.nextRenewalTime ?? "");
     setRemind(sub ? sub.remindDaysBefore : defaultRemind);
     setAutoRenew(sub?.autoRenew ?? false);
     setUrl(sub?.url ?? "");
@@ -165,6 +167,7 @@ export default function SubscriptionDialog({
       cycleDays: legacy ? legacy.cycleDays : approxDays(n, unit),
       ...(live ? { cycleCount: n, cycleUnit: unit } : {}),
       nextRenewal: next,
+      nextRenewalTime: nextTime,
       remindDaysBefore: remind,
       autoRenew,
       url: url.trim(),
@@ -309,15 +312,26 @@ export default function SubscriptionDialog({
           </div>
         </div>
         <div className="monitoring-form-row">
-          <label className="xc-field">
+          <div className="xc-field">
             <span>{t("Next renewal")}</span>
-            <input
-              className="xc-input"
-              type="date"
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-            />
-          </label>
+            <div className="monitoring-renewal-fields">
+              <input
+                className="xc-input"
+                type="date"
+                aria-label={t("Next renewal")}
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+              />
+              <input
+                className="xc-input monitoring-time-input"
+                type="time"
+                aria-label={t("Renewal time (optional)")}
+                title={t("Renewal time (optional)")}
+                value={nextTime}
+                onChange={(e) => setNextTime(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="xc-field">
             <span>{t("Remind before renewal")}</span>
             <div className="monitoring-remind">

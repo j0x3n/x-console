@@ -687,13 +687,16 @@ type Subscription struct {
 	Id       int64 `json:"id"`
 
 	// MonthlyCost 折算到每月的金额
-	MonthlyCost      float64            `json:"monthlyCost"`
-	Name             string             `json:"name"`
-	NextRenewal      openapi_types.Date `json:"nextRenewal"`
-	Note             string             `json:"note"`
-	RemindDaysBefore []int              `json:"remindDaysBefore"`
-	UpdatedAt        time.Time          `json:"updatedAt"`
-	Url              string             `json:"url"`
+	MonthlyCost float64            `json:"monthlyCost"`
+	Name        string             `json:"name"`
+	NextRenewal openapi_types.Date `json:"nextRenewal"`
+
+	// NextRenewalTime B240。可选的续费时间 HH:MM（服务器时区），空字符串表示只按天
+	NextRenewalTime  string    `json:"nextRenewalTime"`
+	Note             string    `json:"note"`
+	RemindDaysBefore []int     `json:"remindDaysBefore"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+	Url              string    `json:"url"`
 }
 
 // SubscriptionCategory defines model for SubscriptionCategory.
@@ -757,7 +760,10 @@ type SubscriptionInput struct {
 	CycleUnit   *SubscriptionCycleUnit `json:"cycleUnit,omitempty"`
 	Name        string                 `json:"name"`
 	NextRenewal openapi_types.Date     `json:"nextRenewal"`
-	Note        *string                `json:"note,omitempty"`
+
+	// NextRenewalTime B240。可选的续费时间 HH:MM，空字符串或不填表示只按天
+	NextRenewalTime *string `json:"nextRenewalTime,omitempty"`
+	Note            *string `json:"note,omitempty"`
 
 	// RemindDaysBefore 默认 [7, 3, 1]（B49 起）
 	RemindDaysBefore *[]int  `json:"remindDaysBefore,omitempty"`
@@ -783,12 +789,15 @@ type SubscriptionPatch struct {
 	CycleDays  *int               `json:"cycleDays,omitempty"`
 
 	// CycleUnit 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
-	CycleUnit        *SubscriptionCycleUnit `json:"cycleUnit,omitempty"`
-	Name             *string                `json:"name,omitempty"`
-	NextRenewal      *openapi_types.Date    `json:"nextRenewal,omitempty"`
-	Note             *string                `json:"note,omitempty"`
-	RemindDaysBefore *[]int                 `json:"remindDaysBefore,omitempty"`
-	Url              *string                `json:"url,omitempty"`
+	CycleUnit   *SubscriptionCycleUnit `json:"cycleUnit,omitempty"`
+	Name        *string                `json:"name,omitempty"`
+	NextRenewal *openapi_types.Date    `json:"nextRenewal,omitempty"`
+
+	// NextRenewalTime B240。HH:MM，空字符串表示清掉时间，只按天
+	NextRenewalTime  *string `json:"nextRenewalTime,omitempty"`
+	Note             *string `json:"note,omitempty"`
+	RemindDaysBefore *[]int  `json:"remindDaysBefore,omitempty"`
+	Url              *string `json:"url,omitempty"`
 }
 
 // SubscriptionSummary defines model for SubscriptionSummary.

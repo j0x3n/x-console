@@ -83,7 +83,7 @@ func toAPISubscription(s db.Subscription, day time.Time, cats map[int64]catInfo)
 	account := s.Account
 	out := api.Subscription{Id: s.ID, Name: s.Name, Account: &account, Category: api.SubscriptionCategory(s.Category), Amount: s.Amount,
 		Currency: s.Currency, Cycle: api.SubscriptionCycle(legacy), CycleDays: legacyDays, CycleCount: &count, CycleUnit: &unit,
-		RemindDaysBefore: intList(s.RemindDaysBefore), Url: s.Url, Note: s.Note, AutoRenew: s.AutoRenew == 1,
+		NextRenewalTime: s.RenewalTime, RemindDaysBefore: intList(s.RemindDaysBefore), Url: s.Url, Note: s.Note, AutoRenew: s.AutoRenew == 1,
 		ArchivedAt: s.ArchivedAt, CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
 		MonthlyCost: round2(monthlyCost(s.Amount, count, s.CycleUnit))}
 	if s.CategoryID != nil {
@@ -108,6 +108,7 @@ type subFields struct {
 	cycleCount                         int
 	cycleUnit                          string
 	next                               time.Time
+	at                                 string // renewal time of day HH:MM, empty for date only
 	remind                             []int
 	autoRenew                          bool
 }
@@ -132,6 +133,13 @@ func (f *subFields) validate() error {
 		return httpx.Invalid("周期单位只能是分钟、小时、天、周、月或年")
 	case f.cycleCount < 1 || f.cycleCount > maxCycleCount:
 		return httpx.Invalid("周期数字要在 1 到 1000 之间")
+	}
+	if f.at = strings.TrimSpace(f.at); f.at != "" {
+		c, err := time.Parse(renewalClock, f.at)
+		if err != nil {
+			return httpx.Invalid("续费时间要写成 时:分，例如 09:30")
+		}
+		f.at = c.Format(renewalClock)
 	}
 	clean := []int{}
 	for _, d := range f.remind {
@@ -281,6 +289,9 @@ func (m *Module) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 	if body.RemindDaysBefore != nil {
 		f.remind = *body.RemindDaysBefore
 	}
+	if body.NextRenewalTime != nil {
+		f.at = *body.NextRenewalTime
+	}
 	if body.Url != nil {
 		f.url = *body.Url
 	}
@@ -301,14 +312,14 @@ func (m *Module) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 	legacy, legacyDays := legacyCycle(f.cycleCount, f.cycleUnit)
 	s, err := m.q.CreateSubscription(ctx, db.CreateSubscriptionParams{Name: f.name, Category: f.builtin, CategoryID: &f.categoryID,
 		Amount: f.amount, Currency: f.currency, Cycle: legacy, CycleDays: int64(legacyDays), CycleCount: int64(f.cycleCount),
-		CycleUnit: f.cycleUnit, NextRenewal: f.next.Format(dateLayout), RemindDaysBefore: mustJSON(f.remind), Url: f.url,
+		CycleUnit: f.cycleUnit, NextRenewal: f.next.Format(dateLayout), RenewalTime: f.at, RemindDaysBefore: mustJSON(f.remind), Url: f.url,
 		Note: f.note, Account: f.account, AutoRenew: boolInt(f.autoRenew), CreatedAt: now, UpdatedAt: now})
 	m.d.Audit.Record(ctx, "subscription.create", "", map[string]any{"name": f.name}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	m.subEvent(ctx, s.ID, now, eventCreated, "下次续费 "+s.NextRenewal)
+	m.subEvent(ctx, s.ID, now, eventCreated, "下次续费 "+renewalLabel(s.NextRenewal, s.RenewalTime))
 	cats, err := m.categoryNames(ctx)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -349,7 +360,7 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 	}
 	next, _ := parseDate(cur.NextRenewal)
 	f := subFields{name: cur.Name, builtin: cur.Category, currency: cur.Currency, url: cur.Url, note: cur.Note, account: cur.Account,
-		amount: cur.Amount, cycleCount: int(cur.CycleCount), cycleUnit: cur.CycleUnit, next: next,
+		amount: cur.Amount, cycleCount: int(cur.CycleCount), cycleUnit: cur.CycleUnit, next: next, at: cur.RenewalTime,
 		remind: intList(cur.RemindDaysBefore), autoRenew: cur.AutoRenew == 1}
 	if cur.CategoryID != nil {
 		f.categoryID = *cur.CategoryID
@@ -378,6 +389,9 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 	}
 	if body.NextRenewal != nil {
 		f.next = body.NextRenewal.Time
+	}
+	if body.NextRenewalTime != nil {
+		f.at = *body.NextRenewalTime
 	}
 	if body.RemindDaysBefore != nil {
 		f.remind = *body.RemindDaysBefore
@@ -410,21 +424,21 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 	}
 	nextStr := f.next.Format(dateLayout)
 	reminded := cur.Reminded
-	if nextStr != cur.NextRenewal {
-		reminded = "[]" // a new renewal date gets its own reminders
+	if nextStr != cur.NextRenewal || f.at != cur.RenewalTime {
+		reminded = "[]" // a new renewal date or time gets its own reminders
 	}
 	legacy, legacyDays := legacyCycle(f.cycleCount, f.cycleUnit)
 	s, err := m.q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{ID: id, Name: f.name, Category: f.builtin, CategoryID: &f.categoryID,
 		Amount: f.amount, Currency: f.currency, Cycle: legacy, CycleDays: int64(legacyDays), CycleCount: int64(f.cycleCount),
-		CycleUnit: f.cycleUnit, NextRenewal: nextStr, RemindDaysBefore: mustJSON(f.remind), Reminded: reminded, Url: f.url,
+		CycleUnit: f.cycleUnit, NextRenewal: nextStr, RenewalTime: f.at, RemindDaysBefore: mustJSON(f.remind), Reminded: reminded, Url: f.url,
 		Note: f.note, Account: f.account, AutoRenew: boolInt(f.autoRenew), ArchivedAt: archived, UpdatedAt: now})
 	m.d.Audit.Record(ctx, "subscription.update", itoa(id), map[string]any{"name": f.name, "nextRenewal": nextStr}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	if nextStr != cur.NextRenewal {
-		m.subEvent(ctx, id, now, eventUpdated, "续费日期 "+cur.NextRenewal+" → "+nextStr)
+	if nextStr != cur.NextRenewal || f.at != cur.RenewalTime {
+		m.subEvent(ctx, id, now, eventUpdated, "续费日期 "+renewalLabel(cur.NextRenewal, cur.RenewalTime)+" → "+renewalLabel(nextStr, f.at))
 	}
 	cats, err := m.categoryNames(ctx)
 	if err != nil {
@@ -575,16 +589,28 @@ func (m *Module) scanSubscriptions(ctx context.Context, now time.Time) error {
 		}
 		reminded := intList(s.Reminded)
 		changed := false
+		// The reminder for the exact time goes out before an auto renewal moves
+		// the date on, and talks about the date that just came due.
+		old := s
+		var atTime bool
+		if at, ok := renewalAt(next, s.RenewalTime, loc); ok && !now.Before(at) && now.Sub(at) < atTimeGrace &&
+			!slices.Contains(reminded, atTimeMark) {
+			atTime = true
+			reminded = append(reminded, atTimeMark)
+			changed = true
+		}
 		var renewedFrom string
-		if s.AutoRenew == 1 && next.Before(day) {
-			renewedFrom = s.NextRenewal
-			next = renewUntil(next, day, int(s.CycleCount), s.CycleUnit)
+		if s.AutoRenew == 1 && renewalPassed(next, s.RenewalTime, now, loc) {
+			renewedFrom = renewalLabel(s.NextRenewal, s.RenewalTime)
+			next = renewUntilNow(next, s.RenewalTime, now, loc, int(s.CycleCount), s.CycleUnit)
 			reminded = []int{}
 			changed = true
 		}
 		left := daysBetween(day, next)
 		var remind bool
-		if remindNow {
+		// Once the renewal time has passed, the reminder for it is the one sent
+		// at that time, so the morning one is not sent after it.
+		if remindNow && !(s.RenewalTime != "" && renewalPassed(next, s.RenewalTime, now, loc)) {
 			var marked []int
 			if remind, marked = reminderDue(left, intList(s.RemindDaysBefore), reminded); remind {
 				reminded = marked
@@ -596,32 +622,44 @@ func (m *Module) scanSubscriptions(ctx context.Context, now time.Time) error {
 		}
 		s, err = m.q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{ID: s.ID, Name: s.Name, Category: s.Category,
 			CategoryID: s.CategoryID, Amount: s.Amount, Currency: s.Currency, Cycle: s.Cycle, CycleDays: s.CycleDays,
-			CycleCount: s.CycleCount, CycleUnit: s.CycleUnit, NextRenewal: next.Format(dateLayout),
+			CycleCount: s.CycleCount, CycleUnit: s.CycleUnit, NextRenewal: next.Format(dateLayout), RenewalTime: s.RenewalTime,
 			RemindDaysBefore: s.RemindDaysBefore, Reminded: mustJSON(reminded), Url: s.Url, Note: s.Note, Account: s.Account, AutoRenew: s.AutoRenew,
 			ArchivedAt: s.ArchivedAt, UpdatedAt: now})
 		if err != nil {
 			return err
 		}
 		out := toAPISubscription(s, day, cats)
+		if atTime {
+			m.subEvent(ctx, s.ID, now, eventReminded, "到点提醒 "+renewalLabel(old.NextRenewal, old.RenewalTime))
+			m.d.Bus.Publish("subscription.due", toAPISubscription(old, day, cats))
+			m.sendRenewalReminder(ctx, old, 0, true)
+		}
 		if renewedFrom != "" {
-			m.subEvent(ctx, s.ID, now, eventRenewed, "自动续期 "+renewedFrom+" → "+s.NextRenewal)
+			m.subEvent(ctx, s.ID, now, eventRenewed, "自动续期 "+renewedFrom+" → "+renewalLabel(s.NextRenewal, s.RenewalTime))
 			m.d.Bus.Publish("subscription.renewed", out)
 		}
 		if remind {
 			m.subEvent(ctx, s.ID, now, eventReminded, fmt.Sprintf("提前 %d 天提醒", left))
 			m.d.Bus.Publish("subscription.due", out)
-			m.sendRenewalReminder(ctx, s, left)
+			m.sendRenewalReminder(ctx, s, left, false)
 		}
 	}
 	return nil
 }
 
-func (m *Module) sendRenewalReminder(ctx context.Context, s db.Subscription, left int) {
+// sendRenewalReminder tells about a coming renewal. exact is the reminder
+// sent when the renewal time itself has come.
+func (m *Module) sendRenewalReminder(ctx context.Context, s db.Subscription, left int, exact bool) {
 	title := fmt.Sprintf("%s 还有 %d 天续费", s.Name, left)
-	if left == 0 {
+	switch {
+	case exact:
+		title = s.Name + " 到续费时间了"
+	case left == 0 && s.RenewalTime != "":
+		title = s.Name + " 今天 " + s.RenewalTime + " 续费"
+	case left == 0:
 		title = s.Name + " 今天续费"
 	}
-	body := fmt.Sprintf("%s，金额 %.2f %s。", s.NextRenewal, s.Amount, s.Currency)
+	body := fmt.Sprintf("%s，金额 %.2f %s。", renewalLabel(s.NextRenewal, s.RenewalTime), s.Amount, s.Currency)
 	if s.AutoRenew == 1 {
 		body += "会自动续费。"
 	} else {

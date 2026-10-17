@@ -383,3 +383,93 @@ func TestSubscriptionCycle(t *testing.T) {
 		t.Fatalf("patched to yearly: %+v", yearly)
 	}
 }
+
+func TestSubscriptionRenewalTime(t *testing.T) {
+	env, m := setup(t)
+	ctx := context.Background()
+	sh := env.App.Deps.Config.Location
+	at := func(date string, hour, minute int) time.Time {
+		d, _ := time.ParseInLocation("2006-01-02", date, sh)
+		return d.Add(time.Duration(hour)*time.Hour + time.Duration(minute)*time.Minute)
+	}
+
+	for _, bad := range []string{"25:00", "9", "12:60", "noon"} {
+		expectStatus(t, env, http.MethodPost, "/subscriptions", api.SubscriptionInput{
+			Name: "x", Amount: 1, Cycle: "monthly", NextRenewal: day("2026-10-11"), NextRenewalTime: ptr(bad)}, 400, "validation_failed")
+	}
+
+	// Without a time, nothing changes and the field comes back empty.
+	var plain api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{Name: "按天", Amount: 1, Cycle: "monthly", NextRenewal: day("2026-10-11"), RemindDaysBefore: &[]int{}}, &plain)
+	if plain.NextRenewalTime != "" {
+		t.Fatalf("plain: %+v", plain)
+	}
+
+	// Manual: one reminder when the time comes, none again and no second one that morning.
+	var sub api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{Name: "VPS", Amount: 10, Cycle: "monthly", NextRenewal: day("2026-10-11"),
+		NextRenewalTime: ptr("8:05"), RemindDaysBefore: &[]int{0}}, &sub)
+	if sub.NextRenewalTime != "08:05" {
+		t.Fatalf("time not normalised: %+v", sub)
+	}
+	_ = m.ScanSubscriptions(ctx, at("2026-10-11", 8, 4))
+	if n := len(notifications(t, env, "subscription.due")); n != 0 {
+		t.Fatalf("before the time: %d", n)
+	}
+	for _, minute := range []int{5, 6, 30} {
+		_ = m.ScanSubscriptions(ctx, at("2026-10-11", 8, minute))
+	}
+	_ = m.ScanSubscriptions(ctx, at("2026-10-11", 9, 30))
+	sent := notifications(t, env, "subscription.due")
+	if len(sent) != 1 || sent[0] != "VPS 到续费时间了" {
+		t.Fatalf("at the time: %v", sent)
+	}
+	env.MustDo(http.MethodGet, fmt.Sprintf("/subscriptions/%d", sub.Id), nil, &sub)
+	if sub.NextRenewal.String() != "2026-10-11" || sub.NextRenewalTime != "08:05" {
+		t.Fatalf("manual renewal moved: %+v", sub)
+	}
+
+	// Changing only the time starts the reminders over; clearing it goes back to a date.
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", sub.Id), api.SubscriptionPatch{NextRenewalTime: ptr("23:00")}, &sub)
+	_ = m.ScanSubscriptions(ctx, at("2026-10-11", 23, 1))
+	if n := len(notifications(t, env, "subscription.due")); n != 2 {
+		t.Fatalf("after new time: %d", n)
+	}
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", sub.Id), api.SubscriptionPatch{NextRenewalTime: ptr("")}, &sub)
+	if sub.NextRenewalTime != "" {
+		t.Fatalf("time not cleared: %+v", sub)
+	}
+
+	// Auto renew waits for the time, not for the next day.
+	var auto api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{Name: "域名", Amount: 5, Cycle: "monthly", NextRenewal: day("2026-10-20"),
+		NextRenewalTime: ptr("15:30"), AutoRenew: ptr(true), RemindDaysBefore: &[]int{}}, &auto)
+	_ = m.ScanSubscriptions(ctx, at("2026-10-20", 15, 29))
+	env.MustDo(http.MethodGet, fmt.Sprintf("/subscriptions/%d", auto.Id), nil, &auto)
+	if auto.NextRenewal.String() != "2026-10-20" {
+		t.Fatalf("renewed too early: %s", auto.NextRenewal)
+	}
+	_ = m.ScanSubscriptions(ctx, at("2026-10-20", 15, 30))
+	env.MustDo(http.MethodGet, fmt.Sprintf("/subscriptions/%d", auto.Id), nil, &auto)
+	if auto.NextRenewal.String() != "2026-11-20" || auto.NextRenewalTime != "15:30" {
+		t.Fatalf("renewed: %s %s", auto.NextRenewal, auto.NextRenewalTime)
+	}
+	sent = notifications(t, env, "subscription.due")
+	if len(sent) != 3 || sent[2] != "域名 到续费时间了" {
+		t.Fatalf("auto reminders: %v", sent)
+	}
+	var events []api.SubscriptionEvent
+	env.MustDo(http.MethodGet, fmt.Sprintf("/subscriptions/%d/events", auto.Id), nil, &events)
+	if len(events) != 3 || events[0].Kind != api.Renewed || events[0].Detail != "自动续期 2026-10-20 15:30 → 2026-11-20 15:30" {
+		t.Fatalf("events: %+v", events)
+	}
+
+	// A reminder this old is not sent after a long stop.
+	var stale api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{Name: "旧的", Amount: 1, Cycle: "monthly", NextRenewal: day("2026-10-01"),
+		NextRenewalTime: ptr("08:00"), RemindDaysBefore: &[]int{}}, &stale)
+	_ = m.ScanSubscriptions(ctx, at("2026-10-05", 12, 0))
+	if n := len(notifications(t, env, "subscription.due")); n != 3 {
+		t.Fatalf("stale reminder sent: %d", n)
+	}
+}

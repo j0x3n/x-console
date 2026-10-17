@@ -120,6 +120,7 @@ registerZh({
   Days: "天数",
   days: "天",
   "Next renewal": "下次续费",
+  "Renewal time (optional)": "续费时间（可不填）",
   "Remind days before": "提前几天提醒",
   "Renews automatically": "自动续费",
   "The date moves to the next cycle by itself.":

@@ -116,6 +116,16 @@ describe("money and dates", () => {
       ),
     ).toEqual(["a", "b", "c"]);
   });
+
+  it("puts the earlier renewal time first on the same day", () => {
+    const sub = (name: string, nextRenewalTime: string) =>
+      ({ name, daysLeft: 1, nextRenewalTime }) as Subscription;
+    expect(
+      sortSubscriptions([sub("a", "18:00"), sub("b", "08:30")]).map(
+        (s) => s.name,
+      ),
+    ).toEqual(["b", "a"]);
+  });
 });
 
 describe("chart", () => {

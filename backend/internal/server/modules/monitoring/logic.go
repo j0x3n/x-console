@@ -308,6 +308,52 @@ func cycleFromLegacy(cycle string, days int) (count int, unit string) {
 	}
 }
 
+// renewalAt is the moment a renewal with a time of day falls due. ok is false
+// when hhmm is empty (the renewal is only a date) or not HH:MM.
+func renewalAt(next time.Time, hhmm string, loc *time.Location) (time.Time, bool) {
+	c, err := time.Parse(renewalClock, hhmm)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return time.Date(next.Year(), next.Month(), next.Day(), c.Hour(), c.Minute(), 0, 0, loc), true
+}
+
+// renewalClock is the layout of a renewal time of day.
+const renewalClock = "15:04"
+
+// atTimeMark is stored in a subscription's reminded list once the reminder
+// for its exact renewal time went out.
+const atTimeMark = -1
+
+// atTimeGrace is how long after the renewal time the reminder is still sent,
+// so a restart does not turn an old renewal into a fresh alarm.
+const atTimeGrace = 6 * time.Hour
+
+// renewalPassed reports whether a renewal is behind now. A date alone passes
+// the day after, as before. With a time of day it passes at that time.
+func renewalPassed(next time.Time, hhmm string, now time.Time, loc *time.Location) bool {
+	if at, ok := renewalAt(next, hhmm, loc); ok {
+		return !now.Before(at)
+	}
+	return next.Before(today(now, loc))
+}
+
+// renewUntilNow advances an auto-renewing date until it has not passed yet.
+func renewUntilNow(next time.Time, hhmm string, now time.Time, loc *time.Location, count int, unit string) time.Time {
+	for i := 0; renewalPassed(next, hhmm, now, loc) && i < 10000; i++ {
+		next = advance(next, count, unit)
+	}
+	return next
+}
+
+// renewalLabel is a renewal date with its time, when it has one.
+func renewalLabel(date, hhmm string) string {
+	if hhmm == "" {
+		return date
+	}
+	return date + " " + hhmm
+}
+
 // reminderHour is the local hour from which renewal reminders go out, so
 // they do not arrive at midnight.
 const reminderHour = 9

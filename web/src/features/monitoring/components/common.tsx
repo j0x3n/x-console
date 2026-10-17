@@ -59,3 +59,14 @@ export function longDate(value: string, language: string): string {
     day: "numeric",
   });
 }
+
+/** 续费日期，有时间时后面接 HH:MM。 */
+export function renewalText(
+  date: string,
+  time: string | undefined,
+  language: string,
+): string {
+  return time
+    ? `${longDate(date, language)} ${time}`
+    : longDate(date, language);
+}

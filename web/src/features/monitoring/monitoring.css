@@ -661,3 +661,14 @@ button.monitoring-row:hover,
     padding-left: 20px;
   }
 }
+
+.monitoring-renewal-fields {
+  display: flex;
+  gap: 8px;
+}
+.monitoring-renewal-fields .xc-input {
+  min-width: 0;
+}
+.monitoring-time-input {
+  flex: 0 0 120px;
+}

@@ -29,7 +29,7 @@ const selfKey = "monitoring.module"
 
 const (
 	checkTick       = 15 * time.Second
-	subscriptionJob = 30 * time.Minute
+	subscriptionJob = time.Minute
 	resultRetention = 30 * 24 * time.Hour
 	// checkWorkers caps how many monitors are checked at the same time.
 	checkWorkers = 8

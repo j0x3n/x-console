@@ -945,7 +945,7 @@ components:
         position: { type: integer }
     Subscription:
       type: object
-      required: [id, name, category, amount, currency, cycle, cycleDays, nextRenewal, remindDaysBefore, url, note, autoRenew, daysLeft, monthlyCost, createdAt, updatedAt]
+      required: [id, name, category, amount, currency, cycle, cycleDays, nextRenewal, nextRenewalTime, remindDaysBefore, url, note, autoRenew, daysLeft, monthlyCost, createdAt, updatedAt]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -969,6 +969,9 @@ components:
           description: 每几个 cycleUnit 续一次（B23）。以它和 cycleUnit 为准，cycle、cycleDays 只保留给旧前端
         cycleUnit: { $ref: "#/components/schemas/SubscriptionCycleUnit" }
         nextRenewal: { type: string, format: date }
+        nextRenewalTime:
+          type: string
+          description: B240。可选的续费时间 HH:MM（服务器时区），空字符串表示只按天
         remindDaysBefore:
           type: array
           items: { type: integer }
@@ -1006,6 +1009,9 @@ components:
           $ref: "#/components/schemas/SubscriptionCycleUnit"
           description: 和 cycleCount 一起给时以它们为准，忽略 cycle、cycleDays
         nextRenewal: { type: string, format: date }
+        nextRenewalTime:
+          type: string
+          description: B240。可选的续费时间 HH:MM，空字符串或不填表示只按天
         remindDaysBefore:
           type: array
           description: 默认 [7, 3, 1]（B49 起）
@@ -1035,6 +1041,9 @@ components:
           $ref: "#/components/schemas/SubscriptionCycleUnit"
           description: 和 cycleCount 一起给时以它们为准，忽略 cycle、cycleDays
         nextRenewal: { type: string, format: date }
+        nextRenewalTime:
+          type: string
+          description: B240。HH:MM，空字符串表示清掉时间，只按天
         remindDaysBefore:
           type: array
           items: { type: integer, minimum: 0, maximum: 365 }

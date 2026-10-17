@@ -254,7 +254,10 @@ export function parseRemindDays(text: string): number[] | null {
 /** 按下次续费日排序，已过期的排最前。 */
 export function sortSubscriptions(items: Subscription[]): Subscription[] {
   return [...items].sort(
-    (a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name),
+    (a, b) =>
+      a.daysLeft - b.daysLeft ||
+      (a.nextRenewalTime ?? "").localeCompare(b.nextRenewalTime ?? "") ||
+      a.name.localeCompare(b.name),
   );
 }
 

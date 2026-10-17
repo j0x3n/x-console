@@ -781,6 +781,8 @@ export interface components {
             cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal: string;
+            /** @description B240。可选的续费时间 HH:MM（服务器时区），空字符串表示只按天 */
+            nextRenewalTime: string;
             remindDaysBefore: number[];
             url: string;
             note: string;
@@ -818,6 +820,8 @@ export interface components {
             cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal: string;
+            /** @description B240。可选的续费时间 HH:MM，空字符串或不填表示只按天 */
+            nextRenewalTime?: string;
             /** @description 默认 [7, 3, 1]（B49 起） */
             remindDaysBefore?: number[];
             url?: string;
@@ -844,6 +848,8 @@ export interface components {
             cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal?: string;
+            /** @description B240。HH:MM，空字符串表示清掉时间，只按天 */
+            nextRenewalTime?: string;
             remindDaysBefore?: number[];
             url?: string;
             note?: string;
