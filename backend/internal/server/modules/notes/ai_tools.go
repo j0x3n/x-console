@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -148,8 +149,8 @@ func (m *Module) SuggestNoteTags(w http.ResponseWriter, r *http.Request) {
 		Tags []string `json:"tags"`
 	}
 	schema := json.RawMessage(`{"type":"object","properties":{"tags":{"type":"array","items":{"type":"string"},"maxItems":3}},"required":["tags"],"additionalProperties":false}`)
-	system := "给笔记挑最多 3 个标签。尽量从已有标签中选，只有很确定时才新建。只返回 JSON。"
-	user := "已有标签：" + strings.Join(names, "、") + "\n\n笔记：\n" + clip(body, maxNoteAIInput)
+	system := "给笔记挑最多 3 个标签。" + noteTagRule + "只返回 JSON。"
+	user := noteTagInput("", body, names)
 	if err := client.CompleteJSON(contracts.WithAIUsage(r.Context(), "notes", ""), "fast", system, user, schema, &answer); err != nil {
 		httpx.Fail(w, r, httpx.NewError(http.StatusBadGateway, "ai_failed", "生成标签失败："+err.Error()))
 		return
@@ -165,6 +166,28 @@ func (m *Module) SuggestNoteTags(w http.ResponseWriter, r *http.Request) {
 		tags = []string{}
 	}
 	httpx.JSON(w, http.StatusOK, map[string][]string{"tags": tags})
+}
+
+// noteTagRule makes the model tag what the note is about. The old wording
+// ("尽量从已有标签中选") made it pick the most-used tags whatever the note said.
+const noteTagRule = "标签要概括这篇笔记讲的主题，先读懂正文再定。已有标签只是参考：里面有意思相同的就用它原来的写法，没有合适的就新建，不要为了用已有标签硬凑。标签用简短的词。"
+
+// noteTagInput puts the note first and the existing tags after it, in name
+// order, so the most-used tags are not the first thing the model reads.
+func noteTagInput(title, body string, existing []string) string {
+	var b strings.Builder
+	if title = strings.TrimSpace(title); title != "" {
+		b.WriteString("标题：" + title + "\n\n")
+	}
+	b.WriteString("笔记：\n" + clip(body, maxNoteAIInput) + "\n\n已有标签：")
+	if len(existing) == 0 {
+		b.WriteString("无")
+	} else {
+		names := slices.Clone(existing)
+		slices.Sort(names)
+		b.WriteString(strings.Join(names, "、"))
+	}
+	return b.String()
 }
 
 func clip(text string, limit int) string {

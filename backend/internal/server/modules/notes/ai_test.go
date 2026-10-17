@@ -226,6 +226,14 @@ func TestNoteAIToolsOnDemand(t *testing.T) {
 	if len(tags.Tags) != 3 || tags.Tags[0] != "工作" {
 		t.Fatalf("tags: %+v", tags.Tags)
 	}
+	// B244: the note comes before the existing tags, which are only a reference.
+	call = fake.Calls[len(fake.Calls)-1]
+	if strings.Contains(call.System, "尽量从已有标签中选") || !strings.Contains(call.System, "主题") {
+		t.Fatalf("tags system: %q", call.System)
+	}
+	if content := call.Messages[0].Content; !strings.HasPrefix(content, "笔记：\n完成了接口") || !strings.HasSuffix(content, "已有标签：无") {
+		t.Fatalf("tags input: %q", content)
+	}
 	// Nothing was saved: the endpoints only answer.
 	var page struct{ Items []api.NoteSummary }
 	env.MustDo(http.MethodGet, "/notes", nil, &page)
