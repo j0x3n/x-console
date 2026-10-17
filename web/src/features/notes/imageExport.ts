@@ -1,3 +1,4 @@
+import { parseMarkdown, type Block } from "../../components/markdown/mdparse";
 import { caretFor } from "./logic";
 
 /*
@@ -46,8 +47,59 @@ export function saveParts(parts: ImageParts) {
   }
 }
 
+/**
+ * B246 宽表格在图片里怎么放：cards 每行变成一块“表头：内容”，图片宽度不变；
+ * wide 保持表格，图片跟着表格加宽，最宽 WIDE_SHEET_WIDTH。
+ */
+export type TableMode = "cards" | "wide";
+
+const TABLE_MODE_KEY = "xc.notes.imageExport.tables";
+
+export function readTableMode(): TableMode {
+  try {
+    return localStorage.getItem(TABLE_MODE_KEY) === "wide" ? "wide" : "cards";
+  } catch {
+    return "cards";
+  }
+}
+
+export function saveTableMode(mode: TableMode) {
+  try {
+    localStorage.setItem(TABLE_MODE_KEY, mode);
+  } catch {
+    /* 存不了就只在这次有效 */
+  }
+}
+
+/** 列数到这么多才算宽表格。3 列以内在 400 宽里放得下，照常画成表格。 */
+export const CARD_MIN_COLUMNS = 4;
+
+/** 正文里有没有宽表格，有才显示“表格”选项。 */
+export function hasWideTable(source: string): boolean {
+  const walk = (blocks: Block[]): boolean =>
+    blocks.some((b) => {
+      if (b.type === "table") return b.header.length >= CARD_MIN_COLUMNS;
+      if (b.type === "quote" || b.type === "container") return walk(b.blocks);
+      if (b.type === "list") return b.items.some((item) => walk(item.blocks));
+      return false;
+    });
+  return walk(parseMarkdown(source));
+}
+
 /** 排版宽度（CSS 像素，含四周空白）。 */
 export const SHEET_WIDTH = 400;
+/** 加宽表格时最宽多少。 */
+export const WIDE_SHEET_WIDTH = 800;
+/** 排版四周的空白，和 notes.css 里 .notes-img-sheet 的 padding 一样。 */
+export const SHEET_PADDING = 24;
+
+/** 加宽表格时的排版宽度：表格多宽就多宽，在 SHEET_WIDTH 和 WIDE_SHEET_WIDTH 之间。 */
+export function wideSheetWidth(tableWidth: number): number {
+  return Math.min(
+    WIDE_SHEET_WIDTH,
+    Math.max(SHEET_WIDTH, Math.ceil(tableWidth) + SHEET_PADDING * 2),
+  );
+}
 /** 400 × 2.7 = 1080 像素宽。 */
 export const MAX_SCALE = 2.7;
 export const MIN_SCALE = 1.5;

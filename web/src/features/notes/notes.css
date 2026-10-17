@@ -1927,10 +1927,25 @@ html[data-theme="dark"] .note-bg-gray {
   max-width: 100%;
   height: auto;
 }
+.notes-img-sheet .xc-md-table {
+  overflow: visible;
+}
 .notes-img-sheet .xc-md-table table {
   width: 100%;
   table-layout: fixed;
   overflow-wrap: anywhere;
+}
+/* B246：表头也换行，列窄时不再挤在一起 */
+.notes-img-sheet .xc-md-table th {
+  white-space: normal;
+}
+/* 加宽表格：按内容排列宽，排版宽度在弹窗里按表格算 */
+.notes-img-sheet.wide .xc-md-table table {
+  width: auto;
+  table-layout: auto;
+}
+.notes-img-sheet.wide .xc-md-table th {
+  white-space: nowrap;
 }
 .notes-img-sheet a {
   color: inherit;

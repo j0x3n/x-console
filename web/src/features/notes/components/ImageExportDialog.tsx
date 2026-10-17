@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Copy, Download, Share } from "lucide-react";
 import { domToBlob } from "modern-screenshot";
@@ -11,12 +11,18 @@ import { errorMessage } from "../../../api/client";
 import { noteBgClass } from "../noteColors";
 import {
   exportDate,
+  hasWideTable,
   imageFileName,
   pickScale,
   readParts,
+  readTableMode,
   saveParts,
+  saveTableMode,
   SHEET_WIDTH,
+  WIDE_SHEET_WIDTH,
+  wideSheetWidth,
   type ImageParts,
+  type TableMode,
 } from "../imageExport";
 
 /** 读不到的图片换成这张灰色方块。 */
@@ -92,6 +98,7 @@ const canCopyImage = () =>
 /**
  * 笔记导出图片（B242）。上面选范围和要放的内容，下面是生成好的图片预览。
  * 在页面外渲染一份 400px 宽的排版，用 modern-screenshot 画成 PNG。
+ * 有 4 列以上的表格时可以选画成卡片，或者保持表格、图片跟着加宽（B246）。
  */
 export default function ImageExportDialog({
   note,
@@ -114,6 +121,7 @@ export default function ImageExportDialog({
     selection ? "selection" : "all",
   );
   const [parts, setParts] = useState<ImageParts>(readParts);
+  const [tableMode, setTableMode] = useState<TableMode>(readTableMode);
   const [status, setStatus] = useState<Status>({ kind: "working" });
   const sheetRef = useRef<HTMLDivElement>(null);
   const urlRef = useRef<string | null>(null);
@@ -122,6 +130,8 @@ export default function ImageExportDialog({
 
   const source = scope === "selection" ? selection : note.body;
   const date = exportDate(note.updatedAt);
+  const wideTable = useMemo(() => hasWideTable(source), [source]);
+  const widen = wideTable && tableMode === "wide";
 
   const toggle = (key: keyof ImageParts) =>
     setParts((p) => {
@@ -129,6 +139,11 @@ export default function ImageExportDialog({
       saveParts(next);
       return next;
     });
+
+  const pickTableMode = (mode: TableMode) => {
+    setTableMode(mode);
+    saveTableMode(mode);
+  };
 
   useEffect(() => {
     let stale = false;
@@ -139,7 +154,19 @@ export default function ImageExportDialog({
       try {
         await document.fonts?.ready;
         let failed = await settleImages(sheet);
-        const scale = pickScale(sheet.offsetHeight);
+        // B246 加宽表格：先按最宽排一次，量出最宽的表格，再定排版宽度
+        let width = SHEET_WIDTH;
+        sheet.style.width = "";
+        if (widen) {
+          sheet.style.width = `${WIDE_SHEET_WIDTH}px`;
+          const tables =
+            sheet.querySelectorAll<HTMLElement>(".xc-md-table table");
+          width = wideSheetWidth(
+            Math.max(0, ...Array.from(tables, (t) => t.offsetWidth)),
+          );
+          sheet.style.width = `${width}px`;
+        }
+        const scale = pickScale(sheet.offsetHeight, width);
         if (stale) return;
         if (scale === null) {
           setStatus({ kind: "tooLong" });
@@ -147,7 +174,7 @@ export default function ImageExportDialog({
         }
         const blob = await domToBlob(sheet, {
           scale,
-          width: SHEET_WIDTH,
+          width,
           type: "image/png",
           fetch: {
             placeholderImage: () => {
@@ -169,7 +196,7 @@ export default function ImageExportDialog({
       stale = true;
       window.clearTimeout(timer);
     };
-  }, [source, parts, note.title, note.color, note.tags, date]);
+  }, [source, parts, widen, note.title, note.color, note.tags, date]);
 
   useEffect(
     () => () => {
@@ -260,6 +287,28 @@ export default function ImageExportDialog({
               {t("Selected part")}
             </button>
           </div>
+          {wideTable && (
+            <div className="xc-tabs" role="group" aria-label={t("Table")}>
+              <button
+                type="button"
+                className={tableMode === "cards" ? "active" : ""}
+                aria-pressed={tableMode === "cards"}
+                title={t("Each row becomes a card. Easy to read on a phone.")}
+                onClick={() => pickTableMode("cards")}
+              >
+                {t("Cards")}
+              </button>
+              <button
+                type="button"
+                className={tableMode === "wide" ? "active" : ""}
+                aria-pressed={tableMode === "wide"}
+                title={t("Keep the table. The image gets wider with it.")}
+                onClick={() => pickTableMode("wide")}
+              >
+                {t("Wide table")}
+              </button>
+            </div>
+          )}
           <div className="notes-img-parts">
             {PART_LABELS.map((x) => (
               <label key={x.key} className="xc-check">
@@ -323,7 +372,7 @@ export default function ImageExportDialog({
         <div className="notes-img-stage" aria-hidden>
           <div
             ref={sheetRef}
-            className={`notes-img-sheet ${noteBgClass(note.color)}`}
+            className={`notes-img-sheet${widen ? " wide" : ""} ${noteBgClass(note.color)}`}
           >
             {parts.title && note.title.trim() && (
               <div className="notes-img-title">{note.title}</div>
@@ -339,7 +388,10 @@ export default function ImageExportDialog({
                   ))}
               </div>
             )}
-            <Markdown source={source} snapshot={{ showHidden: parts.hidden }} />
+            <Markdown
+              source={source}
+              snapshot={{ showHidden: parts.hidden, tables: tableMode }}
+            />
             {parts.brand && <div className="notes-img-brand">X Console</div>}
           </div>
         </div>,

@@ -3,15 +3,20 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_PARTS,
   exportDate,
+  hasWideTable,
   imageFileName,
   MAX_PIXELS,
   MAX_SCALE,
   pickScale,
   previewSelection,
   readParts,
+  readTableMode,
   saveParts,
+  saveTableMode,
   SHEET_WIDTH,
   textareaSelection,
+  WIDE_SHEET_WIDTH,
+  wideSheetWidth,
 } from "./imageExport";
 
 afterEach(() => {
@@ -120,5 +125,32 @@ describe("B242 选中的部分", () => {
     range.selectNodeContents(other);
     window.getSelection()!.addRange(range);
     expect(previewSelection("正文", root)).toBe("");
+  });
+});
+
+describe("B246 宽表格", () => {
+  const row = (n: number) => `| ${Array(n).fill("x").join(" | ")} |`;
+  const table = (n: number) =>
+    `${row(n)}\n| ${Array(n).fill("---").join(" | ")} |\n${row(n)}`;
+
+  it("4 列及以上才算宽表格，引用、提示块和列表里的也算", () => {
+    expect(hasWideTable(table(3))).toBe(false);
+    expect(hasWideTable(table(4))).toBe(true);
+    expect(hasWideTable(`:::tip 说明\n${table(5)}\n:::`)).toBe(true);
+    expect(hasWideTable("普通文字")).toBe(false);
+  });
+
+  it("表格模式默认卡片，选了加宽会记下来", () => {
+    expect(readTableMode()).toBe("cards");
+    saveTableMode("wide");
+    expect(readTableMode()).toBe("wide");
+    localStorage.setItem("xc.notes.imageExport.tables", "乱写");
+    expect(readTableMode()).toBe("cards");
+  });
+
+  it("加宽时的排版宽度在 400 和 800 之间，含两边空白", () => {
+    expect(wideSheetWidth(200)).toBe(SHEET_WIDTH);
+    expect(wideSheetWidth(500)).toBe(548);
+    expect(wideSheetWidth(2000)).toBe(WIDE_SHEET_WIDTH);
   });
 });

@@ -51,6 +51,19 @@ function open(selection = "") {
 
 const sheet = () => document.querySelector(".notes-img-sheet")!;
 
+const wideNote = {
+  ...note,
+  body: "| # | 款式 | 尺寸 | 价格 |\n| --- | --- | --- | --- |\n| 1 | 素钉 | 6mm | 11 元 |\n| 2 | 耳线 |  | 20 元 |",
+};
+
+function openWide() {
+  return render(
+    <MemoryRouter>
+      <ImageExportDialog note={wideNote} selection="" onClose={() => {}} />
+    </MemoryRouter>,
+  );
+}
+
 describe("B242 导出图片弹窗", () => {
   it("没选中内容时“选中的部分”是灰的，默认导出整篇", () => {
     open();
@@ -103,6 +116,33 @@ describe("B242 导出图片弹窗", () => {
     fireEvent.click(screen.getByLabelText("隐藏块的内容"));
     expect(sheet().textContent).toContain("不要给别人看");
     expect(sheet().querySelector("button")).toBeNull();
+  });
+
+  it("没有宽表格时不显示表格选项", () => {
+    open();
+    expect(screen.queryByRole("group", { name: "表格" })).toBeNull();
+  });
+
+  it("B246 宽表格默认画成卡片，空格子不出现", () => {
+    openWide();
+    expect(
+      screen.getByRole("button", { name: "卡片" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    const cards = sheet().querySelectorAll(".xc-md-card");
+    expect(cards).toHaveLength(2);
+    expect(cards[0].querySelector(".xc-md-card-head")?.textContent).toBe("1");
+    expect(cards[0].textContent).toContain("款式素钉");
+    expect(cards[1].textContent).not.toContain("尺寸");
+    expect(sheet().querySelector("table")).toBeNull();
+  });
+
+  it("B246 选加宽表格时保持表格，选项记下来", () => {
+    openWide();
+    fireEvent.click(screen.getByRole("button", { name: "加宽表格" }));
+    expect(sheet().className).toContain("wide");
+    expect(sheet().querySelector("table")).not.toBeNull();
+    expect(sheet().querySelector(".xc-md-card")).toBeNull();
+    expect(localStorage.getItem("xc.notes.imageExport.tables")).toBe("wide");
   });
 
   it("生成以后显示预览，可以保存", async () => {

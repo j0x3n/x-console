@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B246（2026-10-17）：公共组件 `components/markdown/Markdown` 的 `snapshot` 加可选的 `tables: "cards" | "wide"`。为 `cards` 时，4 列及以上的表格画成卡片（`.xc-md-cards` > `dl.xc-md-card`，第一列是 `.xc-md-card-head`），`markdown.css` 加了卡片样式。不传时和原来一样。不改接口。
+
 - B245（2026-10-17）：公共组件 `components/markdown/Markdown` 的表格外层 `.xc-md-table` 改由 `TableBlock` 渲染，右边还有没露出来的列时加 `more` 类（截图模式不加）。`markdown.css` 加：`.more` 右边缘淡出；640px 以下第一列 `position: sticky`，其余列 `min-width: 6em`。新 CSS 变量 `--xc-md-bg` 是固定列的底色，默认 `--xc-bg`，`.xc-card` 设成 `--xc-surface`，`.xc-dialog` 设成 `--xc-elevated`；Markdown 放在别的底色上时设这个变量。不改接口。
 
 - B243（2026-10-17）：笔记分享链接可以允许编辑。`notes.yaml` 的 `NoteShareInput` 加可选的 `allowEdit`（不传不改），`NoteShare` 加 `allowEdit`，`PublicNote` 加 `canEdit`，新类型 `PublicNoteEdit`。加公开接口 `PUT /public/notes/{token}`（访客改标题和正文，没开编辑回 403 `note_edit_disabled`，`baseUpdatedAt` 对不上回 409 `note_changed`）。迁移 `20261017130000_m62_b243_note_share_edit.sql` 给 `note_shares` 加 `allow_edit`（只加不删）。事件 `note.updated` 在访客保存时带 `source: "share"`。审计 `note.share.edit`，`note.share.put` 传了 `allowEdit` 时详情里记一笔。访客保存的标题最多 200 个字。通知 kind `note.shared_edit`。

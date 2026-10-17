@@ -40,8 +40,15 @@ interface Options {
    * B242 截图用：没有按钮，代码块不折叠，视频音频显示成一行字，图片不懒加载。
    * showHidden 为 true 时隐藏块直接展开，为 false 时整块不显示。
    */
-  snapshot?: { showHidden: boolean };
+  snapshot?: {
+    showHidden: boolean;
+    /** B246：cards 时 4 列及以上的表格每行画成一块“表头：内容”。 */
+    tables?: "cards" | "wide";
+  };
 }
+
+/** 截图模式 tables 为 cards 时，列数到这么多的表格画成卡片。 */
+const CARD_MIN_COLUMNS = 4;
 
 /** 渲染 Markdown。站内路径用路由跳转，外部链接在新标签页打开。 */
 export default function Markdown({
@@ -120,6 +127,31 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
         <CodeBlock lang={block.lang} text={block.text} />
       );
     case "table":
+      if (
+        ctx.snapshot?.tables === "cards" &&
+        block.header.length >= CARD_MIN_COLUMNS
+      )
+        return (
+          <div className="xc-md-cards">
+            {block.rows.map((row, r) => (
+              <dl key={r} className="xc-md-card">
+                {row[0]?.length > 0 && (
+                  <div className="xc-md-card-head">
+                    {renderInline(row[0], ctx)}
+                  </div>
+                )}
+                {row.slice(1).map((cell, k) =>
+                  cell.length > 0 ? (
+                    <Fragment key={k}>
+                      <dt>{renderInline(block.header[k + 1] ?? [], ctx)}</dt>
+                      <dd>{renderInline(cell, ctx)}</dd>
+                    </Fragment>
+                  ) : null,
+                )}
+              </dl>
+            ))}
+          </div>
+        );
       return (
         <TableBlock snapshot={!!ctx.snapshot}>
           <table>

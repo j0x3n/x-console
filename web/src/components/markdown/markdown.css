@@ -391,6 +391,34 @@
   border-radius: 3px;
   vertical-align: -1px;
 }
+/* B246 截图里的宽表格画成卡片：每行一块，第一列做小标题，其余是“表头：内容” */
+.xc-md-cards {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 0.75em;
+}
+.xc-md-card {
+  display: grid;
+  grid-template-columns: fit-content(7em) minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  font-size: 0.95em;
+}
+.xc-md-card-head {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+.xc-md-card dt {
+  color: var(--xc-muted);
+}
+.xc-md-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .xc-md-task-box.on {
   border-color: var(--xc-accent);
   background: var(--xc-accent);

@@ -58,6 +58,12 @@ registerZh({
   "Could not copy the image": "复制图片失败",
   Share: "分享",
   "{n} images were not exported": "有 {n} 张图片没导出",
+  // B246 导出图片里的宽表格
+  Cards: "卡片",
+  "Wide table": "加宽表格",
+  "Each row becomes a card. Easy to read on a phone.":
+    "每行变成一块，手机上看清楚",
+  "Keep the table. The image gets wider with it.": "保持表格，图片跟着变宽",
   "Too long for one image. Select a part and export again.":
     "内容太长，选一部分再导出",
   "Share note": "分享笔记",
