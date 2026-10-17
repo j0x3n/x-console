@@ -49,6 +49,11 @@ if has '^scripts/.*\.sh$'; then
   done < <(grep -E '^scripts/.*\.sh$' <<<"$changed")
 fi
 
+if has '^deploy/feeds-api/'; then
+  step "资讯小接口测试"
+  python3 -m unittest discover -s deploy/feeds-api
+fi
+
 # ---------- 后端 ----------
 if has '^(backend|api)/'; then
   cd "$root/backend"

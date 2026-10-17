@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: X Console feeds API (B241)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /feeds/settings:
+    get:
+      operationId: getFeedsSettings
+      tags: [feeds]
+      description: 资讯接口的设置。令牌只写不读，只返回有没有设置过（hasToken）。
+      responses:
+        "200":
+          description: 当前设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putFeedsSettings
+      tags: [feeds]
+      description: |
+        保存设置。需要提升权限，因为设置决定了面板通过哪台机器访问哪个内网地址。
+        agentId 留空表示清除全部设置（包括令牌）。baseUrl 留空用默认值 http://127.0.0.1:8790，只接受 http:// 或 https:// 开头的地址。
+        token 留空或不传表示不改令牌。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeedsSettingsInput" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /feeds/settings/test:
+    post:
+      operationId: testFeeds
+      tags: [feeds]
+      description: |
+        用已保存的设置请求小接口的 /v1/health，返回新闻和推文的条数和最后一条的时间。
+        出错时回错误，错误码见各个读取接口。
+      responses:
+        "200":
+          description: 小接口的状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsHealth" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /feeds/news:
+    get:
+      operationId: listFeedsNews
+      tags: [feeds]
+      description: |
+        新闻列表，按抓取时间倒序。面板按白名单把参数转给虚拟机上的小接口，其他参数一律丢掉。
+        错误：未配置 409 not_configured；机器不在线 503 agent_offline；小接口连不上或返回不对 502 feeds_unreachable；
+        小接口说令牌不对 502 feeds_unauthorized。
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+          description: 关键词，空格分隔，每个词都要命中
+        - name: tag
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: category
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 3650 }
+          description: 只看最近几天抓到的。今天是 1
+        - name: minImportance
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5 }
+        - name: pushed
+          in: query
+          schema: { type: boolean }
+          description: true 只看推过 Telegram 的，false 只看没推过的
+        - name: before
+          in: query
+          schema: { type: string, pattern: "^[0-9]{1,18}$" }
+          description: 上一页返回的 next
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: 一页新闻
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsNewsPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /feeds/news/facets:
+    get:
+      operationId: getFeedsNewsFacets
+      tags: [feeds]
+      description: 筛选用的分类，以及最近 30 天最多的 50 个标签。错误同新闻列表。
+      responses:
+        "200":
+          description: 分类和标签
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsNewsFacets" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /feeds/news/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      operationId: getFeedsNews
+      tags: [feeds]
+      description: 新闻详情，带正文和配图。新闻不存在回 404。其他错误同新闻列表。
+      responses:
+        "200":
+          description: 新闻详情
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsNewsDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /feeds/tweets:
+    get:
+      operationId: listFeedsTweets
+      tags: [feeds]
+      description: 推文列表，按时间倒序。参数同样由面板按白名单转发。错误同新闻列表。
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+          description: 关键词，空格分隔，每个词都要命中
+        - name: author
+          in: query
+          schema: { type: string, maxLength: 100 }
+          description: 作者名或账号的一部分
+        - name: before
+          in: query
+          schema: { type: string, pattern: "^[0-9]{1,20}$" }
+          description: 上一页返回的 next
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: 一页推文
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeedsTweetsPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    FeedsSettings:
+      type: object
+      required: [agentId, baseUrl, hasToken, configured]
+      properties:
+        agentId: { type: string, description: 选的机器，没选是空字符串 }
+        baseUrl: { type: string, description: 没设置过时是默认值 http://127.0.0.1:8790 }
+        hasToken: { type: boolean }
+        configured: { type: boolean, description: 机器、地址、令牌都有才算配好 }
+    FeedsSettingsInput:
+      type: object
+      required: [agentId]
+      properties:
+        agentId: { type: string }
+        baseUrl: { type: string }
+        token: { type: string, description: 只写不读。留空表示不改 }
+    FeedsHealth:
+      type: object
+      required: [news, tweets]
+      properties:
+        news:
+          type: object
+          required: [count]
+          properties:
+            count: { type: integer, format: int64 }
+            lastFetchedAt: { type: string, nullable: true, description: 最后一条新闻的抓取时间，UTC }
+        tweets:
+          type: object
+          required: [count]
+          properties:
+            count: { type: integer, format: int64 }
+            lastAt: { type: string, nullable: true, description: 最后一条推文的发布时间 }
+    FeedsNewsItem:
+      type: object
+      required: [id, title, url, source, category, tags, pushed]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        titleCn: { type: string, nullable: true, description: 还没翻译时为空 }
+        summary: { type: string, nullable: true }
+        summaryCn: { type: string, nullable: true }
+        url: { type: string }
+        source: { type: string }
+        category: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        importance: { type: integer, nullable: true, description: 1 到 5，还没评分时为空 }
+        pushed: { type: boolean, description: 推过 Telegram }
+        publishedAt: { type: string, nullable: true, description: ISO 时间，UTC }
+        fetchedAt: { type: string, nullable: true, description: ISO 时间，UTC }
+    FeedsNewsPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FeedsNewsItem" }
+        next:
+          type: string
+          nullable: true
+          description: 下一页的 before 参数，没有更多时为空
+    FeedsNewsFacets:
+      type: object
+      required: [categories, tags]
+      properties:
+        categories:
+          type: array
+          items: { type: string }
+        tags:
+          type: array
+          items:
+            type: object
+            required: [tag, count]
+            properties:
+              tag: { type: string }
+              count: { type: integer }
+    FeedsNewsContent:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: ok、thin、error、non_html、pending 是抓取状态，missing 是还没抓取
+        markdown: { type: string, nullable: true, description: 原文正文，Markdown }
+        markdownCn: { type: string, nullable: true, description: 译文正文，Markdown }
+        truncated: { type: boolean, description: 正文太长被截断了 }
+    FeedsNewsMedia:
+      type: object
+      required: [url, type]
+      properties:
+        url: { type: string }
+        type: { type: string }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+    FeedsNewsDetail:
+      allOf:
+        - $ref: "#/components/schemas/FeedsNewsItem"
+        - type: object
+          required: [content, media]
+          properties:
+            content: { $ref: "#/components/schemas/FeedsNewsContent" }
+            media:
+              type: array
+              items: { $ref: "#/components/schemas/FeedsNewsMedia" }
+    FeedsTweet:
+      type: object
+      required: [id, author, time, url, text]
+      properties:
+        id: { type: string, description: 推文编号，数字太大，当字符串用 }
+        author: { type: string }
+        time: { type: string, description: 发布时间，ISO }
+        url: { type: string }
+        text: { type: string, description: "保留换行。引用推文接在后面，中间隔一行 [引用推文]" }
+        collectedAt: { type: string, nullable: true }
+    FeedsTweetsPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FeedsTweet" }
+        next:
+          type: string
+          nullable: true

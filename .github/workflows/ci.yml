@@ -137,6 +137,18 @@ jobs:
           ~/go/bin/gotestsum --format pkgname-and-test-fails --rerun-fails=1 --rerun-fails-max-failures=5 \
             --packages="${pkgs[*]}" -- -vet=off -ldflags="-s -w" "${flags[@]}"
 
+  # 虚拟机上的资讯小接口（deploy/feeds-api）。只用 Python 标准库，几秒跑完，每次都跑。
+  # 装 zstandard 是为了让正文解压的用例也跑（没装时这些用例会跳过）。
+  feeds-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install zstandard==0.25.0
+      - run: python3 -m unittest discover -s deploy/feeds-api -v
+
   # 看上次部署成功以来改了什么（PR 也是和目标分支上次部署成功的提交比），决定跑哪些检查，
   # 规则在 scripts/ci-scope.sh。查不到上次部署、手动运行时全部都跑。
   # 端到端两边都跑，每次都跑。

@@ -1,0 +1,23 @@
+[Unit]
+Description=X Console 资讯小接口
+After=network.target
+
+[Service]
+Type=simple
+# 令牌放在这个文件里：XC_FEEDS_TOKEN=...，文件权限设成 0600
+EnvironmentFile=/etc/x-console-feeds.env
+# 用 ai-news 的 Python，它装了 zstandard。路径按实际情况改
+ExecStart=/root/.hermes/scripts/ai-news/.venv/bin/python3 /opt/x-console-feeds/feeds_api.py --listen 127.0.0.1:8790 \
+  --news-db /root/.hermes/scripts/ai-news/ai_intel.db \
+  --tweets-jsonl /root/.hermes/remote-chrome/tweets.jsonl \
+  --tweets-db /root/.hermes/remote-chrome/tweets.db
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+# 除了 /root/.hermes 其余位置都只读。新闻库开了 WAL，只读连接也要写 -shm 文件，所以整个目录要能写
+ProtectSystem=strict
+ReadWritePaths=/root/.hermes
+
+[Install]
+WantedBy=multi-user.target

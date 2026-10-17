@@ -669,6 +669,14 @@ type ExperimentMetric struct {
 	SortOrder    int64
 }
 
+type FeedsSetting struct {
+	ID        int64
+	AgentID   string
+	BaseUrl   string
+	TokenEnc  string
+	UpdatedAt time.Time
+}
+
 type FocusBlockAgent struct {
 	AgentID     string
 	State       string

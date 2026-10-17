@@ -1,0 +1,25 @@
+--- a/collect.js
++++ b/collect.js
+@@ -4,6 +4,8 @@
+ 
+ const LIST_URL = 'https://x.com/i/lists/1709113193581203694';
+ const STATE = path.join(__dirname, 'seen.json');
++// 新推文追加写在这里，x-console-feeds 服务从这个文件读。每行一条 JSON。
++const TWEETS_LOG = path.join(__dirname, 'tweets.jsonl');
+ const baseline = process.argv.includes('--baseline');
+ 
+ (async () => {
+@@ -53,7 +55,12 @@
+     const seen = new Set(state.seen || []);
+     const fresh = tweets.filter(t => !seen.has(t.id));
+     const next = [...new Set([...fresh.map(t => t.id), ...(state.seen || [])])].slice(0, 2000);
+-    const payload = fresh.length ? JSON.stringify({ list: 'b', new_tweets: fresh.length, tweets: fresh }, null, 2) : (state.last_payload || 'NO_NEW_TWEETS');
++    const payload = fresh.length ? JSON.stringify({ list: 'b', new_tweets: fresh.length, tweets: fresh }, null, 2) : 'NO_NEW_TWEETS';
++    if (fresh.length) {
++      // 先写 tweets.jsonl 再写 seen.json。写失败就整个脚本报错退出，这批推文下次还会被当成新的，重复的行服务会跳过。
++      const collectedAt = new Date().toISOString();
++      fs.appendFileSync(TWEETS_LOG, fresh.map(t => JSON.stringify({ ...t, collectedAt })).join('\n') + '\n');
++    }
+     fs.writeFileSync(STATE, JSON.stringify({ seen: next, last_payload: payload, updated_at: new Date().toISOString() }));
+     if (baseline) {
+       console.log(JSON.stringify({ mode: 'baseline', list: 'b', count: tweets.length }));

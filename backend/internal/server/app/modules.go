@@ -21,6 +21,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/documents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/experiments"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/feeds"
 	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focusblock"
@@ -112,4 +113,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	watchers.New,    // B206
 	recipes.New,     // B209
 	agentupdate.New, // B233
+	feeds.New,       // B241
 }

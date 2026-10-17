@@ -18,6 +18,7 @@ import {
   Hourglass,
   Home,
   Layers,
+  Newspaper,
   Library,
   Mail,
   Monitor,
@@ -64,6 +65,8 @@ export const navItems: NavItem[] = [
     icon: Bookmark,
     group: "personal",
   },
+  // B241：资讯，ai-news 的新闻和 x-assistant 的推文
+  { path: "/feeds", label: "Feeds", icon: Newspaper, group: "personal" },
   // B130：复习卡片，放在稍后阅读下面
   {
     path: "/cards",

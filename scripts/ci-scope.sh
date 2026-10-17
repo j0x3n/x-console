@@ -16,7 +16,7 @@
 #   - 各模块的 db/models.go 是生成的，加迁移时每个模块都会变，不算改动。
 #   - 新迁移只加测 internal/server/store。
 #   - 其他任何后端改动、接口公共定义、依赖、脚本、工作流，甚至认不出的路径，一律全量。
-#   - 只有 docs 和 .md 的改动什么都不跑。
+#   - 只有 docs 和 .md 的改动什么都不跑。deploy/feeds-api/ 里的改动也不触发后端和前端检查，它的测试是 ci.yml 里单独的 feeds-api 任务，每次都跑。
 set -euo pipefail
 
 base=${1:-}
@@ -41,6 +41,7 @@ while IFS= read -r f; do
   [ -n "$f" ] || continue
   case "$f" in
     docs/*|*.md) ;;
+    deploy/feeds-api/*) ;; # 虚拟机上的小接口，CI 里有单独的任务（feeds-api）每次都跑
     backend/internal/server/modules/*/db/models.go) backend=true ;;
     backend/internal/server/modules/*/*)
       m=${f#backend/internal/server/modules/}; m=${m%%/*}

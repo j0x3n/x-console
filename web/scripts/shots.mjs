@@ -497,6 +497,8 @@ const routes = [
   ["documents", "/documents"],
   ["screentime", "/screentime"],
   ["readlater", "/readlater"],
+  ["feeds", "/feeds"],
+  ["feeds-tweets", "/feeds/tweets"],
   ["journal", "/journal"],
   ["credentials", "/credentials"],
   ["contacts", "/contacts"],
@@ -545,6 +547,7 @@ const routes = [
   ["settings-homeassistant", "/settings/homeassistant"],
   ["settings-mail", "/settings/mail"],
   ["settings-music", "/settings/music"],
+  ["settings-feeds", "/settings/feeds"],
 ]
   .filter(Boolean)
   .filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));

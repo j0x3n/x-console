@@ -33,6 +33,7 @@ import { routes as recipes } from "../features/recipes/routes";
 import { routes as credentials } from "../features/credentials/routes";
 import { routes as aiconfig } from "../features/aiconfig/routes";
 import { routes as readlater } from "../features/readlater/routes";
+import { routes as feeds } from "../features/feeds/routes";
 import { routes as screentime } from "../features/screentime/routes";
 import { routes as automations } from "../features/automations/routes";
 import { routes as github } from "../features/github/routes";
@@ -61,6 +62,7 @@ export const moduleRoutes: RouteObject[] = [
   ...documents,
   ...screentime,
   ...readlater,
+  ...feeds,
   ...journal,
   ...contacts,
   ...music,

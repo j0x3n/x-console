@@ -11,6 +11,7 @@ import {
   Mail,
   MonitorSmartphone,
   Music,
+  Newspaper,
   Plug,
   Router,
   ScrollText,
@@ -38,6 +39,7 @@ import MailSettingsTab from "../mail/MailSettingsTab";
 import RouterSettingsTab from "../router/RouterSettingsTab";
 import MaintenanceTab from "../maintenance/MaintenanceTab";
 import XSettingsTab from "../readlater/XSettingsTab";
+import FeedsSettingsTab from "../feeds/FeedsSettingsTab";
 import MusicSettingsTab from "../music/MusicSettingsTab";
 import MeSettingsTab from "../me/MeSettingsTab";
 
@@ -189,6 +191,13 @@ export const settingsTabs: SettingsTab[] = [
     icon: Bookmark,
     group: "integrations",
     component: XSettingsTab,
+  },
+  {
+    id: "feeds",
+    label: "Feeds",
+    icon: Newspaper,
+    group: "integrations",
+    component: FeedsSettingsTab,
   },
   {
     id: "music",

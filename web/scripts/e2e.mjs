@@ -4482,6 +4482,128 @@ try {
     assert.equal(egressWatcher?.egressAgentId, host.id, "出口机器没有存下");
     await send("DELETE", `/watchers/${egressWatcher.id}`);
 
+    setStage("B241 资讯经过代理读新闻和推文");
+    // 假的小接口，接口格式和 deploy/feeds-api 一样。面板经过代理的 http.proxy 访问它。
+    const feedsToken = "e2e-feeds-token";
+    const feedsNews = (id) => ({
+      id,
+      title: `E2E news ${id}`,
+      titleCn: `端到端新闻 ${id}`,
+      summaryCn: `端到端摘要 ${id}`,
+      url: `https://example.com/e2e-news-${id}`,
+      source: "E2E",
+      category: "model",
+      tags: ["agent"],
+      importance: 4,
+      pushed: true,
+      fetchedAt: new Date().toISOString(),
+    });
+    const feedsFake = http.createServer((request, response) => {
+      const url = new URL(request.url, "http://127.0.0.1");
+      const reply = (status, body) => {
+        response.writeHead(status, { "Content-Type": "application/json" });
+        response.end(JSON.stringify(body));
+      };
+      if (request.headers.authorization !== `Bearer ${feedsToken}`)
+        return reply(401, { error: "unauthorized" });
+      if (url.pathname === "/v1/health")
+        return reply(200, {
+          news: { count: 3, lastFetchedAt: new Date().toISOString() },
+          tweets: { count: 2, lastAt: new Date().toISOString() },
+        });
+      if (url.pathname === "/v1/news/facets")
+        return reply(200, {
+          categories: ["model"],
+          tags: [{ tag: "agent", count: 3 }],
+        });
+      if (url.pathname === "/v1/news")
+        return reply(
+          200,
+          url.searchParams.get("before") === "2"
+            ? { items: [feedsNews(1)] }
+            : { items: [feedsNews(3), feedsNews(2)], next: "2" },
+        );
+      if (url.pathname === "/v1/news/3")
+        return reply(200, {
+          ...feedsNews(3),
+          content: {
+            status: "ok",
+            markdown: "E2E article body",
+            markdownCn: "端到端正文",
+          },
+          media: [],
+        });
+      if (url.pathname === "/v1/tweets") {
+        const all = [
+          {
+            id: "1900000000000000002",
+            author: "E2E Writer @e2ewriter",
+            time: new Date().toISOString(),
+            url: "https://x.com/i/web/status/1900000000000000002",
+            text: "端到端推文 作者筛选",
+          },
+          {
+            id: "1900000000000000001",
+            author: "Someone @someone",
+            time: new Date().toISOString(),
+            url: "https://x.com/i/web/status/1900000000000000001",
+            text: "别人的推文",
+          },
+        ];
+        const author = url.searchParams.get("author") ?? "";
+        return reply(200, {
+          items: all.filter((tweet) => tweet.author.includes(author)),
+        });
+      }
+      reply(404, { error: "not found" });
+    });
+    await new Promise((ready) => feedsFake.listen(0, "127.0.0.1", ready));
+    try {
+      await page.goto(`${base}/settings/feeds`);
+      const feedsForm = page.locator("form", { hasText: "资讯接口" });
+      await feedsForm.getByLabel("代理").selectOption({ label: "e2e-linux" });
+      await feedsForm
+        .getByLabel("接口地址")
+        .fill(`http://127.0.0.1:${feedsFake.address().port}`);
+      await feedsForm.getByLabel("接口令牌").fill(feedsToken);
+      await feedsForm.getByRole("button", { name: "保存" }).click();
+      await verifyIfAsked();
+      await feedsForm.locator(".xc-badge", { hasText: "已配置" }).waitFor();
+      const feedsSettings = await api("/feeds/settings");
+      assert.equal(feedsSettings.agentId, host.id, "资讯的机器没有存下");
+      assert.equal("token" in feedsSettings, false, "设置接口带出了令牌");
+      await feedsForm.getByRole("button", { name: "测试连接" }).click();
+      await feedsForm.getByText(/新闻 3/).waitFor();
+
+      await page.goto(`${base}/feeds`);
+      await page.getByText("端到端新闻 3").waitFor();
+      await page.getByRole("button", { name: "加载更多" }).click();
+      await page.getByText("端到端新闻 1").waitFor();
+      await page.getByRole("button", { name: "端到端新闻 3" }).first().click();
+      const newsDialog = dialog("端到端新闻 3");
+      await newsDialog.getByText("端到端正文").waitFor();
+      await newsDialog.getByRole("button", { name: "存进稍后读" }).click();
+      await page.getByText("已存进稍后读").waitFor();
+      const savedFromFeeds = await until("新闻存进了稍后读", async () =>
+        (await api("/readlater?view=all")).items.find(
+          (item) => item.url === "https://example.com/e2e-news-3",
+        ),
+      );
+      await send("DELETE", `/readlater/${savedFromFeeds.id}`);
+      await page.keyboard.press("Escape");
+
+      await page.goto(`${base}/feeds/tweets`);
+      await page.getByText("别人的推文").waitFor();
+      await page.getByLabel("按作者筛选").fill("@e2ewriter");
+      await page.waitForURL(/author=%40e2ewriter/);
+      await page.getByText("别人的推文").waitFor({ state: "detached" });
+      await page.getByText("端到端推文 作者筛选").waitFor();
+
+      await send("PUT", "/feeds/settings", { agentId: "" });
+    } finally {
+      feedsFake.close();
+    }
+
     setStage("吊销代理并停止进程");
     await page.goto(`${base}/settings/devices`);
     const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });
