@@ -96,6 +96,8 @@ registerZh({
   "Select all": "全选",
   Selected: "已选",
   "Mark as read": "标为已读",
+  Archive: "归档",
+  "mails archived": "封邮件已归档",
   "mails marked as read": "封邮件已标为已读",
   "mails marked as unread": "封邮件已标为未读",
   "mails deleted": "封邮件已删除",

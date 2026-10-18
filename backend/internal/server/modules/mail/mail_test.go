@@ -42,8 +42,17 @@ type fakeIMAP struct {
 	user *imapmemserver.User
 	tls  *tls.Config // what clients use to trust it
 
-	logins atomic.Int32 // 登录过多少次，用来看有没有另开连接
-	lossy  atomic.Bool  // 设上以后 STORE 不保存任何状态
+	logins        atomic.Int32 // 登录过多少次，用来看有没有另开连接
+	lossy         atomic.Bool  // 设上以后 STORE 不保存任何状态
+	bodyFetches   atomic.Int32
+	failBodies    atomic.Bool
+	failCopy      atomic.Bool
+	failCreate    atomic.Bool
+	creates       atomic.Int32
+	archiveFolder string // LIST 返回带有 \\Archive 的文件夹
+	allFolder     string // LIST 返回带有 \\All 的文件夹
+	bodyStarted   chan struct{}
+	bodyRelease   chan struct{}
 }
 
 // session is the fake server's session. In lossy mode STORE answers with the
@@ -75,7 +84,68 @@ func (s *session) Store(w *imapserver.FetchWriter, numSet imap.NumSet, flags *im
 	return s.UserSession.Store(w, numSet, flags, options)
 }
 
-func newFakeIMAP(t *testing.T) *fakeIMAP {
+func (s *session) Copy(set imap.NumSet, folder string) (*imap.CopyData, error) {
+	if s.f.failCopy.Load() {
+		return nil, &imap.Error{Type: imap.StatusResponseTypeNo, Text: "copy denied"}
+	}
+	return s.UserSession.Copy(set, folder)
+}
+
+func (s *session) Create(name string, options *imap.CreateOptions) error {
+	s.f.creates.Add(1)
+	if s.f.failCreate.Load() {
+		return &imap.Error{Type: imap.StatusResponseTypeNo, Text: "create denied"}
+	}
+	return s.UserSession.Create(name, options)
+}
+
+func (s *session) Fetch(w *imapserver.FetchWriter, set imap.NumSet, options *imap.FetchOptions) error {
+	for _, section := range options.BodySection {
+		if len(section.Part) == 0 && section.Partial != nil && section.Partial.Size > 2048 {
+			if s.f.bodyFetches.Add(1) == 1 && s.f.bodyStarted != nil {
+				close(s.f.bodyStarted)
+				<-s.f.bodyRelease
+			}
+			if s.f.failBodies.Load() {
+				return &imap.Error{Type: imap.StatusResponseTypeNo, Text: "body fetch failed"}
+			}
+		}
+	}
+	return s.UserSession.Fetch(w, set, options)
+}
+
+func (s *session) List(w *imapserver.ListWriter, ref string, patterns []string, options *imap.ListOptions) error {
+	if s.f.allFolder != "" && options.ReturnSpecialUse {
+		if err := w.WriteList(&imap.ListData{Mailbox: s.f.allFolder, Attrs: []imap.MailboxAttr{imap.MailboxAttrAll}, Delim: '/'}); err != nil {
+			return err
+		}
+	}
+	if s.f.archiveFolder != "" && options.ReturnSpecialUse {
+		if err := w.WriteList(&imap.ListData{Mailbox: s.f.archiveFolder, Attrs: []imap.MailboxAttr{imap.MailboxAttrArchive}, Delim: '/'}); err != nil {
+			return err
+		}
+	}
+	return s.UserSession.List(w, ref, patterns, options)
+}
+
+func (s *session) Idle(w *imapserver.UpdateWriter, stop <-chan struct{}) error {
+	// imapmemserver's Idle misses updates queued between the last command's
+	// Poll and entering Idle. Flush pending updates too, as a real server does.
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if err := s.UserSession.Poll(w, true); err != nil {
+			return err
+		}
+		select {
+		case <-stop:
+			return nil
+		case <-ticker.C:
+		}
+	}
+}
+
+func newFakeIMAP(t *testing.T, extraCaps ...imap.Cap) *fakeIMAP {
 	t.Helper()
 	h := httptest.NewTLSServer(http.NotFoundHandler()) // 借它的证书
 	certs := h.TLS.Certificates
@@ -88,11 +158,15 @@ func newFakeIMAP(t *testing.T) *fakeIMAP {
 		t.Fatal(err)
 	}
 	fake := &fakeIMAP{user: u}
+	caps := imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapIdle: {}}
+	for _, cap := range extraCaps {
+		caps[cap] = struct{}{}
+	}
 	srv := imapserver.New(&imapserver.Options{
 		NewSession: func(*imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
 			return &session{f: fake, usr: u}, nil, nil
 		},
-		Caps:         imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapIdle: {}},
+		Caps:         caps,
 		InsecureAuth: true,
 		Logger:       quietLogger{},
 	})
@@ -203,14 +277,14 @@ JVBERi0=
 --mix--
 `
 
-func setup(t *testing.T) (*testutil.Env, *mail.Module, *fakeIMAP) {
+func setup(t *testing.T, extraCaps ...imap.Cap) (*testutil.Env, *mail.Module, *fakeIMAP) {
 	t.Helper()
 	env := testutil.New(t)
 	m, ok := module.Lookup[*mail.Module](env.App.Deps.Registry, mail.ServiceKey)
 	if !ok {
 		t.Fatal("mail module not registered")
 	}
-	f := newFakeIMAP(t)
+	f := newFakeIMAP(t, extraCaps...)
 	mail.SetTLSConfig(m, f.tls)
 	mail.SetTimings(m, 200*time.Millisecond, time.Second)
 	env.Elevate()

@@ -45,6 +45,10 @@ type Module struct {
 	ctx     context.Context // set by Start; workers stop when it ends
 	workers map[int64]*worker
 	states  map[int64]accountState
+
+	// Bound the lock count while serializing body and attachment writes for
+	// the same account/UID, including an open racing with prefetch.
+	bodyLocks [64]sync.Mutex
 }
 
 var (

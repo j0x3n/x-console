@@ -380,10 +380,10 @@ export interface components {
             done: boolean;
         };
         /**
-         * @description read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+         * @description read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除；archive 归档（移到邮箱的归档文件夹）
          * @enum {string}
          */
-        MailBatchAction: "read" | "unread" | "star" | "unstar" | "delete";
+        MailBatchAction: "read" | "unread" | "star" | "unstar" | "delete" | "archive";
         MailBatch: {
             ids: number[];
             action: components["schemas"]["MailBatchAction"];

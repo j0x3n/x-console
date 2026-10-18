@@ -38,6 +38,7 @@ import {
 } from "./api";
 import AccountDialog from "./components/AccountDialog";
 import MessageView from "./components/MessageView";
+import MailRowMenu from "./components/MailRowMenu";
 import { mailTime, senderName } from "./logic";
 import {
   CATEGORY_FILTERS,
@@ -51,6 +52,7 @@ import { useKeepScroll } from "../../hooks/useKeepScroll";
  * 邮件（B53）：左边收件箱，右边阅读，和笔记一样铺满右侧（B218）。窄屏时一次只显示一栏。
  * 邮箱和未读切换在左栏二级菜单里（2026-10-05），页面里不再放。
  * B219：列表可以多选，批量标已读、未读或删除；顶栏有“全部已读”。
+ * XC-66：每封信右键可以单独标已读或未读、归档、删除。
  * 地址参数：?a=账号 id，?m=邮件 id，?unread=1，?new=1 打开添加邮箱。
  */
 export default function MailPage() {
@@ -93,6 +95,10 @@ export default function MailPage() {
 
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [menu, setMenu] = useState<{
+    m: MailSummary;
+    at: { x: number; y: number };
+  } | null>(null);
   const stopSelecting = () => {
     setSelecting(false);
     setSelected(new Set());
@@ -155,8 +161,10 @@ export default function MailPage() {
         ? { message: res.errors.join("\n"), tone: "error" }
         : `${res.done} ${t(done)}`,
     );
-  const runBatch = async (action: MailBatchAction) => {
-    const ids = [...selected];
+  const runBatch = async (
+    action: MailBatchAction,
+    ids: number[] = [...selected],
+  ) => {
     if (!ids.length) return;
     if (
       action === "delete" &&
@@ -174,11 +182,17 @@ export default function MailPage() {
             res,
             action === "delete"
               ? "mails deleted"
-              : action === "read"
-                ? "mails marked as read"
-                : "mails marked as unread",
+              : action === "archive"
+                ? "mails archived"
+                : action === "read"
+                  ? "mails marked as read"
+                  : "mails marked as unread",
           );
-          if (action === "delete" && openId && ids.includes(openId))
+          if (
+            (action === "delete" || action === "archive") &&
+            openId &&
+            ids.includes(openId)
+          )
             set("m", null);
           stopSelecting();
         },
@@ -357,6 +371,7 @@ export default function MailPage() {
                     })
                   }
                   onOpen={() => set("m", String(m.id))}
+                  onMenu={(at) => setMenu({ m, at })}
                 />
               ))}
               {list.hasNextPage && (
@@ -383,6 +398,14 @@ export default function MailPage() {
         </section>
       </div>
       {dialog}
+      {menu && (
+        <MailRowMenu
+          m={menu.m}
+          at={menu.at}
+          onClose={() => setMenu(null)}
+          onAction={(action) => void runBatch(action, [menu.m.id])}
+        />
+      )}
     </div>
   );
 }
@@ -395,6 +418,7 @@ function MessageRow({
   checked,
   onToggle,
   onOpen,
+  onMenu,
 }: {
   m: MailSummary;
   active: boolean;
@@ -403,6 +427,7 @@ function MessageRow({
   checked: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onMenu: (at: { x: number; y: number }) => void;
 }) {
   const t = useT();
   const now = useNow(60_000);
@@ -423,6 +448,11 @@ function MessageRow({
         type="button"
         className={`mail-row${m.unread ? " unread" : ""}${active ? " active" : ""}`}
         onClick={selecting ? onToggle : onOpen}
+        onContextMenu={(e) => {
+          if (selecting) return;
+          e.preventDefault();
+          onMenu({ x: e.clientX, y: e.clientY });
+        }}
       >
         <span className="mail-row-top">
           <strong>{senderName(m.from)}</strong>

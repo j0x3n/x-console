@@ -418,8 +418,8 @@ components:
         done: { type: boolean }
     MailBatchAction:
       type: string
-      description: read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
-      enum: [read, unread, star, unstar, delete]
+      description: read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除；archive 归档（移到邮箱的归档文件夹）
+      enum: [read, unread, star, unstar, delete, archive]
     MailBatch:
       type: object
       required: [ids, action]

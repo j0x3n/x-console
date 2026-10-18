@@ -277,3 +277,34 @@ describe("邮件外部图片", () => {
     );
   });
 });
+
+describe("右键菜单（XC-66）", () => {
+  it("右键一封信可以单独标已读、归档、删除", async () => {
+    api.routes.set("POST /mail/messages/batch", (body) => ({
+      status: 200,
+      body: { done: (body as { ids: number[] }).ids.length, errors: [] },
+    }));
+    renderAt("/mail");
+    const rows = await screen.findAllByRole("button", { name: /甲/ });
+    const batches = () =>
+      api.calls.filter((c) => c.path === "/mail/messages/batch");
+
+    fireEvent.contextMenu(rows[1]);
+    let menu = await screen.findByRole("menu");
+    expect(
+      within(menu).getByRole("menuitem", { name: "标为未读" }),
+    ).toBeTruthy();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "归档" }));
+    await waitFor(() =>
+      expect(batches().at(-1)?.body).toEqual({ ids: [2], action: "archive" }),
+    );
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.contextMenu(rows[2]);
+    menu = await screen.findByRole("menu");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "删除" }));
+    await waitFor(() =>
+      expect(batches().at(-1)?.body).toEqual({ ids: [4], action: "delete" }),
+    );
+  });
+});

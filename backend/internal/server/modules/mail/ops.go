@@ -11,6 +11,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail/api"
 )
 
@@ -30,6 +31,7 @@ const (
 	opFlag
 	opUnflag
 	opDelete
+	opArchive
 )
 
 // jobWait is how long a request waits for the worker before it falls back
@@ -40,6 +42,8 @@ const jobWait = 15 * time.Second
 const opChunk = 500
 
 var errWorkerGone = errors.New("mail: worker connection ended")
+
+var errNoArchive = httpx.Invalid("这个邮箱没有归档文件夹，也建不了")
 
 type job struct {
 	kind opKind
@@ -189,6 +193,9 @@ func (m *Module) execOp(ctx context.Context, c *imapclient.Client, accountID int
 	if kind == opDelete {
 		return m.deleteOnServer(ctx, c, accountID, set)
 	}
+	if kind == opArchive {
+		return archiveOnServer(c, set)
+	}
 	flag, on := imap.FlagSeen, true
 	switch kind {
 	case opUnseen:
@@ -249,6 +256,10 @@ func (m *Module) deleteOnServer(ctx context.Context, c *imapclient.Client, accou
 		return nil
 	}
 	m.d.Log.Info("mail: no trash folder, deleting for good", "account", accountID)
+	return deletePermanently(c, set)
+}
+
+func deletePermanently(c *imapclient.Client, set imap.UIDSet) error {
 	if err := c.Store(set, &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagDeleted}}, nil).Close(); err != nil {
 		return fmt.Errorf("删除失败：%w", err)
 	}
@@ -266,9 +277,54 @@ func (m *Module) deleteOnServer(ctx context.Context, c *imapclient.Client, accou
 
 // trashFolder finds the trash: first the one marked \Trash, then by name.
 func trashFolder(c *imapclient.Client) (string, error) {
+	return specialFolder(c, imap.MailboxAttrTrash, trashNames)
+}
+
+var archiveNames = []string{"archive", "archives", "归档", "已归档"}
+
+func archiveOnServer(c *imapclient.Client, set imap.UIDSet) error {
+	folder, err := specialFolder(c, imap.MailboxAttrArchive, archiveNames)
+	if err != nil {
+		return fmt.Errorf("读邮箱文件夹失败：%w", err)
+	}
+	if folder == "" {
+		// Gmail archives into the folder marked \\All. Keep this fallback
+		// separate from specialFolder so trash lookup is unchanged.
+		folder, err = specialFolder(c, imap.MailboxAttrAll, nil)
+		if err != nil {
+			return fmt.Errorf("读邮箱文件夹失败：%w", err)
+		}
+		if folder != "" {
+			if selected := c.Mailbox(); selected != nil && selected.Name == folder {
+				return nil
+			}
+		}
+	}
+	if folder == "" {
+		folder = "Archive"
+		if err := c.Create(folder, nil).Wait(); err != nil {
+			return errNoArchive
+		}
+	}
+	if c.Caps().Has(imap.CapMove) {
+		if _, err := c.Move(set, folder).Wait(); err != nil {
+			return fmt.Errorf("归档失败：%w", err)
+		}
+		return nil
+	}
+	// Wait for COPY to succeed before setting \\Deleted. The client's Move
+	// fallback pipelines these commands and could delete mail if COPY fails.
+	if _, err := c.Copy(set, folder).Wait(); err != nil {
+		return fmt.Errorf("归档失败：%w", err)
+	}
+	return deletePermanently(c, set)
+}
+
+// specialFolder prefers a special-use attribute over a case-insensitive name.
+func specialFolder(c *imapclient.Client, attr imap.MailboxAttr, names []string) (string, error) {
 	var opts *imap.ListOptions
 	if c.Caps().Has(imap.CapSpecialUse) {
-		opts = &imap.ListOptions{ReturnSpecialUse: true} // 有的服务器不问就不回 \Trash
+		opts = &imap.ListOptions{ReturnSpecialUse: true}
 	}
 	boxes, err := c.List("", "*", opts).Collect()
 	if err != nil {
@@ -279,7 +335,7 @@ func trashFolder(c *imapclient.Client) (string, error) {
 		if strings.EqualFold(b.Mailbox, "INBOX") || slices.Contains(b.Attrs, imap.MailboxAttrNoSelect) {
 			continue
 		}
-		if slices.Contains(b.Attrs, imap.MailboxAttrTrash) {
+		if slices.Contains(b.Attrs, attr) {
 			return b.Mailbox, nil
 		}
 		name := strings.ToLower(b.Mailbox)
@@ -288,7 +344,7 @@ func trashFolder(c *imapclient.Client) (string, error) {
 				name = name[i+1:]
 			}
 		}
-		if byName == "" && slices.Contains(trashNames, name) {
+		if byName == "" && slices.Contains(names, name) {
 			byName = b.Mailbox
 		}
 	}

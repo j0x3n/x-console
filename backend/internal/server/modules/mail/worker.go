@@ -344,6 +344,11 @@ func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, s
 	if acc.Notify == 1 {
 		m.notifyNew(ctx, acc, fresh, sorted)
 	}
+	// After the pushes, so fetching bodies never delays a verification code.
+	// Reuse the selected connection before IDLE; errors never fail the sync.
+	if err := m.prefetchBodies(ctx, c, acc.ID); err != nil {
+		m.d.Log.Warn("mail: prefetch bodies", "account", acc.ID, "err", err)
+	}
 	return nil
 }
 
@@ -370,10 +375,9 @@ func (m *Module) syncFlags(ctx context.Context, c *imapclient.Client, id int64) 
 	for _, r := range rows {
 		flags, ok := remote[r.Uid]
 		if !ok {
-			if err := m.q.DeleteMessageByUID(ctx, db.DeleteMessageByUIDParams{AccountID: id, Uid: r.Uid}); err != nil {
+			if err := m.deleteLocalMessage(ctx, id, r.Uid); err != nil {
 				return changed, err
 			}
-			m.deleteFiles(ctx, fmt.Sprintf("%d/%d", id, r.Uid))
 			changed = true
 			continue
 		}

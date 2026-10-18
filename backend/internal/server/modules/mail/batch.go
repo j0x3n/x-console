@@ -2,6 +2,7 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -20,6 +21,7 @@ const (
 
 var batchKinds = map[api.MailBatchAction]opKind{
 	api.Read: opSeen, api.Unread: opUnseen, api.Star: opFlag, api.Unstar: opUnflag, api.Delete: opDelete,
+	api.Archive: opArchive,
 }
 
 func (m *Module) BatchMailMessages(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +116,9 @@ func (m *Module) applyByAccount(ctx context.Context, byAccount map[int64][]int64
 	for _, id := range accountIDs {
 		uids := byAccount[id]
 		if err := m.apply(ctx, id, kind, uids); err != nil {
+			if errors.Is(err, errNoArchive) {
+				return out, err
+			}
 			if ctx.Err() != nil {
 				return out, ctx.Err()
 			}
@@ -138,18 +143,27 @@ func (m *Module) applyLocal(ctx context.Context, accountID int64, kind opKind, u
 			err = m.q.SetUnreadByUIDs(ctx, db.SetUnreadByUIDsParams{Unread: boolInt(kind == opUnseen), AccountID: accountID, Uids: chunk})
 		case opFlag, opUnflag:
 			err = m.q.SetFlaggedByUIDs(ctx, db.SetFlaggedByUIDsParams{Flagged: boolInt(kind == opFlag), AccountID: accountID, Uids: chunk})
-		case opDelete:
+		case opDelete, opArchive:
 			for _, uid := range chunk {
-				if err = m.q.DeleteMessageByUID(ctx, db.DeleteMessageByUIDParams{AccountID: accountID, Uid: uid}); err != nil {
+				if err = m.deleteLocalMessage(ctx, accountID, uid); err != nil {
 					break
 				}
-				m.deleteFiles(ctx, fmt.Sprintf("%d/%d", accountID, uid))
 			}
 		}
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (m *Module) deleteLocalMessage(ctx context.Context, accountID, uid int64) error {
+	unlock := m.lockBody(accountID, uid)
+	defer unlock()
+	if err := m.q.DeleteMessageByUID(ctx, db.DeleteMessageByUIDParams{AccountID: accountID, Uid: uid}); err != nil {
+		return err
+	}
+	m.deleteFiles(ctx, fmt.Sprintf("%d/%d", accountID, uid))
 	return nil
 }
 

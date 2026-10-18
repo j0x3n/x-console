@@ -36,16 +36,19 @@ func (e MailAccountStatus) Valid() bool {
 
 // Defines values for MailBatchAction.
 const (
-	Delete MailBatchAction = "delete"
-	Read   MailBatchAction = "read"
-	Star   MailBatchAction = "star"
-	Unread MailBatchAction = "unread"
-	Unstar MailBatchAction = "unstar"
+	Archive MailBatchAction = "archive"
+	Delete  MailBatchAction = "delete"
+	Read    MailBatchAction = "read"
+	Star    MailBatchAction = "star"
+	Unread  MailBatchAction = "unread"
+	Unstar  MailBatchAction = "unstar"
 )
 
 // Valid indicates whether the value is a known member of the MailBatchAction enum.
 func (e MailBatchAction) Valid() bool {
 	switch e {
+	case Archive:
+		return true
 	case Delete:
 		return true
 	case Read:
@@ -197,12 +200,12 @@ type MailAttachment struct {
 
 // MailBatch defines model for MailBatch.
 type MailBatch struct {
-	// Action read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+	// Action read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除；archive 归档（移到邮箱的归档文件夹）
 	Action MailBatchAction `json:"action"`
 	Ids    []int64         `json:"ids"`
 }
 
-// MailBatchAction read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+// MailBatchAction read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除；archive 归档（移到邮箱的归档文件夹）
 type MailBatchAction string
 
 // MailBatchResult defines model for MailBatchResult.

@@ -616,6 +616,57 @@ func (q *Queries) RecentFlags(ctx context.Context, arg RecentFlagsParams) ([]Rec
 	return items, nil
 }
 
+const recentUncachedBodies = `-- name: RecentUncachedBodies :many
+SELECT id, account_id, uid, message_id, from_name, from_address, subject, snippet, date, unread, flagged, has_attachments, body_json FROM (
+  SELECT id, account_id, uid, message_id, from_name, from_address, subject, snippet, date, unread, flagged, has_attachments, body_json FROM mail_messages WHERE account_id = ? AND date >= ?
+  ORDER BY date DESC, id DESC LIMIT ?
+) WHERE body_json IS NULL
+ORDER BY date DESC, id DESC
+`
+
+type RecentUncachedBodiesParams struct {
+	AccountID int64
+	Date      time.Time
+	Limit     int64
+}
+
+func (q *Queries) RecentUncachedBodies(ctx context.Context, arg RecentUncachedBodiesParams) ([]MailMessage, error) {
+	rows, err := q.db.QueryContext(ctx, recentUncachedBodies, arg.AccountID, arg.Date, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MailMessage
+	for rows.Next() {
+		var i MailMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Uid,
+			&i.MessageID,
+			&i.FromName,
+			&i.FromAddress,
+			&i.Subject,
+			&i.Snippet,
+			&i.Date,
+			&i.Unread,
+			&i.Flagged,
+			&i.HasAttachments,
+			&i.BodyJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setFlaggedByUIDs = `-- name: SetFlaggedByUIDs :exec
 UPDATE mail_messages SET flagged = ? WHERE account_id = ? AND uid IN (/*SLICE:uids*/?)
 `
@@ -664,7 +715,7 @@ func (q *Queries) SetFlagsByUID(ctx context.Context, arg SetFlagsByUIDParams) er
 	return err
 }
 
-const setMessageBody = `-- name: SetMessageBody :exec
+const setMessageBody = `-- name: SetMessageBody :execrows
 UPDATE mail_messages SET body_json = ? WHERE id = ?
 `
 
@@ -673,9 +724,12 @@ type SetMessageBodyParams struct {
 	ID       int64
 }
 
-func (q *Queries) SetMessageBody(ctx context.Context, arg SetMessageBodyParams) error {
-	_, err := q.db.ExecContext(ctx, setMessageBody, arg.BodyJson, arg.ID)
-	return err
+func (q *Queries) SetMessageBody(ctx context.Context, arg SetMessageBodyParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setMessageBody, arg.BodyJson, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setMessageFlags = `-- name: SetMessageFlags :exec

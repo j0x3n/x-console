@@ -48,8 +48,15 @@ SELECT * FROM mail_messages WHERE id = ?;
 -- name: SetMessageFlags :exec
 UPDATE mail_messages SET unread = ?, flagged = ? WHERE id = ?;
 
--- name: SetMessageBody :exec
+-- name: SetMessageBody :execrows
 UPDATE mail_messages SET body_json = ? WHERE id = ?;
+
+-- name: RecentUncachedBodies :many
+SELECT * FROM (
+  SELECT * FROM mail_messages WHERE account_id = ? AND date >= ?
+  ORDER BY date DESC, id DESC LIMIT ?
+) WHERE body_json IS NULL
+ORDER BY date DESC, id DESC;
 
 -- name: ListMessages :many
 SELECT id, account_id, uid, message_id, from_name, from_address, subject, snippet, date, unread, flagged, has_attachments

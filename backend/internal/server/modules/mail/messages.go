@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -14,7 +15,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-message"
 	_ "github.com/emersion/go-message/charset" // GBK、GB2312 这类编码
 	gomail "github.com/emersion/go-message/mail"
@@ -142,7 +142,15 @@ func (m *Module) GetMailMessage(w http.ResponseWriter, r *http.Request, messageI
 
 // loadBody returns the cached body, or fetches the whole message once.
 func (m *Module) loadBody(ctx context.Context, row db.MailMessage) (bodyJSON, error) {
+	unlock := m.lockBody(row.AccountID, row.Uid)
+	defer unlock()
 	var body bodyJSON
+	// A concurrent prefetch/open may have saved the body since the handler
+	// read the row. Recheck under the attachment lock before connecting.
+	row, err := m.getMessage(ctx, row.ID)
+	if err != nil {
+		return body, err
+	}
 	if row.BodyJson != nil {
 		if err := json.Unmarshal([]byte(*row.BodyJson), &body); err == nil {
 			return body, nil
@@ -164,39 +172,51 @@ func (m *Module) loadBody(ctx context.Context, row db.MailMessage) (bodyJSON, er
 	stop := context.AfterFunc(ctx, func() { c.Close() })
 	defer stop()
 
-	prefix := fmt.Sprintf("%d/%d", row.AccountID, row.Uid)
-	m.deleteFiles(ctx, prefix) // 上次没取完留下的
-	cmd := c.Fetch(imap.UIDSetNum(imap.UID(row.Uid)), &imap.FetchOptions{
-		UID: true, BodySection: []*imap.FetchItemBodySection{{Peek: true, Partial: &imap.SectionPartial{Offset: 0, Size: maxMessageBytes}}},
-	})
-	found := false
-	for msg := cmd.Next(); msg != nil; msg = cmd.Next() {
-		for item := msg.Next(); item != nil; item = msg.Next() {
-			sec, ok := item.(imapclient.FetchItemDataBodySection)
-			if !ok || sec.Literal == nil || found {
-				continue
-			}
-			found = true
-			if body, err = m.parseMessage(ctx, sec.Literal, prefix); err != nil {
-				_ = cmd.Close()
-				return body, httpx.NewError(http.StatusBadGateway, "mail_unavailable", "邮件解析失败："+err.Error())
-			}
-		}
-	}
-	if err := cmd.Close(); err != nil {
+	section := bodySection()
+	msgs, err := c.Fetch(imap.UIDSetNum(imap.UID(row.Uid)), &imap.FetchOptions{
+		UID: true, BodySection: []*imap.FetchItemBodySection{section},
+	}).Collect()
+	if err != nil {
 		return body, httpx.NewError(http.StatusBadGateway, "mail_unavailable", "取邮件失败："+err.Error())
 	}
-	if !found {
+	if len(msgs) == 0 || msgs[0].FindBodySection(section) == nil {
 		return body, httpx.NewError(http.StatusNotFound, "not_found", "这封邮件在邮箱里已经没有了")
 	}
 	_ = c.Logout().Wait()
+	return m.storeBody(ctx, row, bytes.NewReader(msgs[0].FindBodySection(section)))
+}
+
+// lockBody guards parsing, file cleanup and cache persistence for an account/UID.
+func (m *Module) lockBody(accountID, uid int64) func() {
+	mu := &m.bodyLocks[(uint64(accountID)*31+uint64(uid))%uint64(len(m.bodyLocks))]
+	mu.Lock()
+	return mu.Unlock
+}
+
+// storeBody requires lockBody. A failed parse/save must not leave orphan files.
+func (m *Module) storeBody(ctx context.Context, row db.MailMessage, r io.Reader) (body bodyJSON, err error) {
+	prefix := fmt.Sprintf("%d/%d", row.AccountID, row.Uid)
+	m.deleteFiles(ctx, prefix)
+	defer func() {
+		if err != nil {
+			m.deleteFiles(context.WithoutCancel(ctx), prefix)
+		}
+	}()
+	body, err = m.parseMessage(ctx, io.LimitReader(r, maxMessageBytes), prefix)
+	if err != nil {
+		return body, httpx.NewError(http.StatusBadGateway, "mail_unavailable", "邮件解析失败："+err.Error())
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return body, err
 	}
 	s := string(raw)
-	if err := m.q.SetMessageBody(ctx, db.SetMessageBodyParams{BodyJson: &s, ID: row.ID}); err != nil {
+	n, err := m.q.SetMessageBody(ctx, db.SetMessageBodyParams{BodyJson: &s, ID: row.ID})
+	if err != nil {
 		return body, err
+	}
+	if n == 0 {
+		return body, httpx.ErrNotFound
 	}
 	return body, nil
 }

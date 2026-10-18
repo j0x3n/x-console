@@ -35,3 +35,6 @@ func SnippetText(raw []byte, encoding, charset string, html bool) string {
 
 // CleanText exposes the snippet cleaner (B92).
 func CleanText(s string) string { return cleanText(s) }
+
+// ArchiveOnServer tests the guard for an already selected All Mail folder.
+var ArchiveOnServer = archiveOnServer
