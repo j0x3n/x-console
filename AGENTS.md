@@ -22,19 +22,21 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 - 用户决定做什么、何时上线。
 - 其他人（Claude、Codex 等）用户让做什么就是什么角色：记需求、开发或验收。
 
-## 用哪个模型写代码（2026-10-17 用户定的）
+## 用哪个模型写代码（2026-10-19 用户更新）
 
 环境变量 `CLAUDE_CODE_REMOTE=true` 说明是云端环境，比如网页版或手机 App 开的会话。没有这个变量就是用户本地。
 
 | 在哪里开发 | 前端（`web/` 下的代码和界面） | 其他代码（后端、代理、脚本） |
 | --- | --- | --- |
-| 云端 | Claude Opus 5.5，effort high | Claude Sonnet 5.5，effort high |
-| 用户本地 | Claude Opus 5.5，effort high | Codex 或 Grok Build |
+| 云端 | GPT-6.1-sol，effort high | Claude Sonnet 5.5，effort high |
+| 用户本地 | GPT-6.1-sol，effort high | Codex 或 Grok Build |
+
+2026-10-19 用户指定 GPT-6.1-sol high 全面替代 Claude Opus 5.5，开发和审查都按此执行。
 
 - 小改动由当前会话直接改，不按上表分派。标准和“小修”一节一样。子代理要从头读一遍上下文，小改动交出去反而更贵。
 - 超出小改动的任务按上表分派。当前会话的模型和表里不一样时，交给子代理去写，在 Agent 工具里指定模型和 effort。
 - 一个任务前后端都有时，先定接口定义，再把前端和其他代码分开交给各自的模型。
-- 不是 Claude Opus 5.5 写的改动，提交前由 Claude Opus 5.5 审查全部改动，重点和“验收”一节一样。发现问题就改，改完再审，通过了才提交。
+- 不是 GPT-6.1-sol 写的改动，提交前由 GPT-6.1-sol high 审查全部改动，重点和“验收”一节一样。发现问题就改，改完再审，通过了才提交。
 - 在 `docs/tasks-done.md` 记下每部分是哪个模型写的。
 
 ## 流程

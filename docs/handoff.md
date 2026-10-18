@@ -25,25 +25,12 @@
 
 ### 等用户定 / 下一步
 
-- XC-57 左栏合并：2026-10-19 用户已确认方案和样式，还没写代码，下一个会话直接开工。纯前端，Claude Opus 5.5 写。先在 `docs/tasks.md` 加一条任务（编号顺延，推送前 `git fetch` 看远端用到哪个号），再写 `docs/specs/` 的规格。
-  - 分组（用现有的 `navMerges`，B179，地址都不变）：
-    - 工作：今日、项目、Agent（`/coding`，合并仓库 `/github`）。
-    - 笔记（`/notes`：笔记、稍后读、复习卡片、资讯 `/feeds`）、问我的数据、邮件、日程（`/calendar`：日程和专注、提醒事项、今日计划、收集箱）、音乐、云盘。
-    - 设备（`/servers`：服务器、电脑、路由器、智能家居、屏幕时间）。现在的“家”（`/home` + `/router`）拆掉，`navEntryLabels` 里的 `Home and network` 去掉。
-    - 个人（`/habits`：习惯和健身、目标、状态打卡、自我实验、技能、证件档案、联系人、菜谱、预测）。
-    - 运维（`/monitoring`：监控、密钥、自动化）。
-  - 已固定的旧入口：换成它所在的新入口（`entryOf`），保留用户原来的顺序，重复的去掉。比如 `/reminders` 换成 `/calendar`，`/router` 换成 `/servers`。在 `navEntries.ts` 的 `railItems`、`railEntries`、`togglePin`、`isPinned` 里统一处理，不改后端存的值。
-  - `defaultNavPins` 改成全部 11 个入口，用分隔线（`/-/1`、`/-/2`）分成三段：项目、Agent | 笔记、问我的数据、邮件、日程、音乐、云盘 | 设备、个人、运维。
-  - 样式（用户选了方案 B）：
-    - 设备、个人、运维是新入口，入口名写进 `navEntryLabels`（Devices、Personal、Ops，中文 设备、个人、运维，注意 `Personal` 已是启动台分组的键，中文同样是“个人”，不冲突）。各配一个新图标，需要在 `nav.ts` 加一个 `navEntryIcons`，`buildEntries` 用它。
-    - 二级菜单标题栏写入口名。顶部列出组里的功能，横线下面是当前功能自己的菜单（现有 `MergedNavPanel`，`Sidebar.tsx` 约 340 行）。
-    - 组里超过 5 项时，顶部的功能排成两列，行高 28px，字号 12px（只有个人组会这样）。不超过 5 项的照旧竖排，行高 34px。样式加在 `web/src/styles/nav.css` 的 `.nav-merge` 附近。
-    - 组里功能的顺序跟 `navItems` 一样，`MergedNavPanel` 按 `navItems` 过滤。要按上面的顺序排就调 `navItems` 的顺序（比如资讯挪到复习卡片后面，云盘不再跟在服务器下面）。
-    - 启动台（`Launcher.tsx`）分成工作、个人、设备三组，`integrations` 组没有入口了就不显示（现在空组本来就会被过滤，确认一下）。各入口的 `group` 取入口自己那一行的 `group`，运维和云盘要改成 `machines`，设备入口是 `machines`。在启动台搜组里的功能名（比如“菜谱”）也要能找到它所在的入口，要看 `Launcher.tsx` 现在是不是只搜入口名。
-    - 手机上抽屉内容一样，截图看 390px 宽时两列放不放得下。
-  - 要改的测试：`web/src/components/layout/navEntries.test.ts` 第一条写死了“合并三组”和 `Home and network`，要按新分组重写，再补旧固定入口换成新入口的用例。`Launcher.test.tsx` 也看一下。
-  - 文档：`docs/07-design.md` 第 29 行左栏那段写的是“笔记、习惯、家”三组和“云盘在设备组排在服务器下面”，要一起改。
-  - 截图自查：`npm run shots -- --only /habits`、`/servers`、`/calendar`，看 1360 和 390。
+- XC-57 左栏合并已完成，任务 B250。对应本次 B250 提交，推送到 develop，不部署。
+  - 11 个入口和两条默认分隔线。设备、个人、运维使用独立入口名和图标。个人顶部功能两列，其余单列。
+  - 旧固定项映射、去重，保留原顺序。不主动改后端保存值。启动台的旧固定项排序和成员名搜索已验证。
+  - 修复合并入口延迟注册角标时的 Hook 数量错误。快速检查及前端全量 1126 条测试通过。
+  - 已检查习惯、设备、日程在 1360px 和 390px 的深浅主题，以及手机抽屉和启动台。记录见 [qa/B250-nav-merge.md](qa/B250-nav-merge.md)。完整端到端留给 CI。
+  - 用户指定 GPT-6.1-sol high 全面替代 Claude Opus 5.5，开发和审查按新规则执行。已更新 AGENTS.md。
 
 ### 这次发现的环境问题
 

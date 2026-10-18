@@ -6,6 +6,7 @@ import {
   isNavSeparator,
   movePin,
   newSeparator,
+  normalizePins,
   type NavEntry,
 } from "./navEntries";
 
@@ -97,7 +98,11 @@ export default function Launcher({
         </div>
         <div className="launcher-body">
           {!q && pins && onChangePins && (
-            <RailOrder entries={entries} pins={pins} onChange={onChangePins} />
+            <RailOrder
+              entries={entries}
+              pins={normalizePins(pins)}
+              onChange={onChangePins}
+            />
           )}
           {groups.length === 0 && (
             <div className="launcher-empty">{t("No matching apps")}</div>

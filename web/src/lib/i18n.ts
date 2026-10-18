@@ -114,7 +114,8 @@ registerZh({
   Cyber: "赛博",
   // B179 左栏精简
   Work: "工作",
-  "Home and network": "家",
+  Devices: "设备",
+  Ops: "运维",
   "All apps": "全部功能",
   "Search apps": "搜索功能",
   "Pin to sidebar": "固定到左栏",

@@ -3,6 +3,7 @@ import {
   defaultNavPins,
   entryOf,
   navEntryLabels,
+  navEntryIcons,
   navItems,
   navMerges,
   type NavGroup,
@@ -29,16 +30,18 @@ export function buildEntries(visible: NavItem[]): NavEntry[] {
     if (item.path === "/") continue;
     const entry = entryOf(item.path);
     if (seen.has(entry)) continue;
-    const members = (navMerges[entry] ?? [entry])
-      .map((path) => visible.find((v) => v.path === path))
-      .filter((m): m is NavItem => !!m);
+    const members = navItems.filter(
+      (n) =>
+        (navMerges[entry] ?? [entry]).includes(n.path) &&
+        visible.some((v) => v.path === n.path),
+    );
     if (members.length === 0) continue;
     seen.add(entry);
     const head = navItems.find((n) => n.path === entry) ?? item;
     entries.push({
       path: entry,
       label: navEntryLabels[entry] ?? head.label,
-      icon: head.icon,
+      icon: navEntryIcons[entry] ?? head.icon,
       group: head.group,
       members,
     });
@@ -55,7 +58,7 @@ export function railEntries(
   pins: string[] | null,
   current: string | undefined,
 ): NavEntry[] {
-  const list = (pins ?? defaultNavPins)
+  const list = normalizePins(pins ?? defaultNavPins)
     .map((p) => entries.find((e) => e.path === p))
     .filter((e): e is NavEntry => !!e);
   const here = current && entries.find((e) => e.path === entryOf(current));
@@ -66,6 +69,13 @@ export function railEntries(
 /** B189：左栏的分隔线也存在 navPins 里，写成 /-/<编号>，后端的地址校验能通过。 */
 export function isNavSeparator(pin: string): boolean {
   return pin.startsWith("/-/");
+}
+
+/** 旧功能固定项归到新入口，保留首次出现的顺序；只在用户操作时保存新列表。 */
+export function normalizePins(pins: string[]): string[] {
+  return [
+    ...new Set(pins.map((pin) => (isNavSeparator(pin) ? pin : entryOf(pin)))),
+  ];
 }
 
 /** 新分隔线的值：编号取没用过的最小值。 */
@@ -89,7 +99,7 @@ export function railItems(
   current: string | undefined,
 ): RailItem[] {
   const out: RailItem[] = [];
-  for (const pin of pins ?? defaultNavPins) {
+  for (const pin of normalizePins(pins ?? defaultNavPins)) {
     if (isNavSeparator(pin)) {
       if (out.length && out[out.length - 1].kind === "entry")
         out.push({ kind: "sep", key: pin });
@@ -115,11 +125,14 @@ export function movePin(pins: string[], from: number, to: number): string[] {
 
 /** 固定或取消固定一个入口，返回新的列表。 */
 export function togglePin(pins: string[] | null, path: string): string[] {
-  const list = pins ?? defaultNavPins;
-  return list.includes(path) ? list.filter((p) => p !== path) : [...list, path];
+  const list = normalizePins(pins ?? defaultNavPins);
+  const entry = entryOf(path);
+  return list.includes(entry)
+    ? list.filter((p) => p !== entry)
+    : [...list, entry];
 }
 
 /** 这个入口有没有固定。 */
 export function isPinned(pins: string[] | null, path: string): boolean {
-  return (pins ?? defaultNavPins).includes(path);
+  return normalizePins(pins ?? defaultNavPins).includes(entryOf(path));
 }

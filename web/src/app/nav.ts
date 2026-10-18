@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BookOpen,
   Bell,
   Bookmark,
   CalendarClock,
@@ -33,6 +32,9 @@ import {
   Users,
   ChefHat,
   Workflow,
+  Network,
+  CircleUserRound,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export type NavGroup = "main" | "personal" | "machines" | "integrations";
@@ -65,8 +67,6 @@ export const navItems: NavItem[] = [
     icon: Bookmark,
     group: "personal",
   },
-  // B241：资讯，ai-news 的新闻和 x-assistant 的推文
-  { path: "/feeds", label: "Feeds", icon: Newspaper, group: "personal" },
   // B130：复习卡片，放在稍后阅读下面
   {
     path: "/cards",
@@ -74,18 +74,34 @@ export const navItems: NavItem[] = [
     icon: Layers,
     group: "personal",
   },
+  { path: "/feeds", label: "Feeds", icon: Newspaper, group: "personal" },
+  { path: "/ask", label: "Ask my data", icon: Library, group: "personal" },
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
+  {
+    path: "/calendar",
+    label: "Schedule & focus",
+    icon: CalendarDays,
+    group: "personal",
+  },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
+  { path: "/plan", label: "Day plan", icon: CalendarClock, group: "personal" },
+  { path: "/inbox", label: "Capture inbox", icon: Inbox, group: "personal" },
   // B147：音乐。歌放在云盘里，全局播放器在 GlobalPanels
   { path: "/music", label: "Music", icon: Headphones, group: "personal" },
+  { path: "/drive", label: "Drive", icon: HardDrive, group: "machines" },
+  { path: "/servers", label: "Servers", icon: Server, group: "machines" },
+  { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
+  { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
+  { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
+  {
+    path: "/screentime",
+    label: "Screen time",
+    icon: Hourglass,
+    group: "machines",
+  },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
   // B128：季度目标和每周复盘
   { path: "/goals", label: "Goals", icon: Target, group: "personal" },
-  { path: "/plan", label: "Day plan", icon: CalendarClock, group: "personal" },
-  { path: "/inbox", label: "Capture inbox", icon: Inbox, group: "personal" },
-  { path: "/forecasts", label: "Forecasts", icon: Scale, group: "personal" },
-  { path: "/skills", label: "Skills", icon: GraduationCap, group: "personal" },
-  { path: "/ask", label: "Ask my data", icon: Library, group: "personal" },
   {
     path: "/checkins",
     label: "Check-ins",
@@ -98,22 +114,13 @@ export const navItems: NavItem[] = [
     icon: FlaskConical,
     group: "personal",
   },
-  // B209：菜谱和做菜计时
-  { path: "/recipes", label: "Recipes", icon: ChefHat, group: "personal" },
-  {
-    path: "/calendar",
-    label: "Schedule & focus",
-    icon: CalendarDays,
-    group: "personal",
-  },
+  { path: "/skills", label: "Skills", icon: GraduationCap, group: "personal" },
   // B115：证件、合同和物品保修
   { path: "/documents", label: "Documents", icon: Files, group: "personal" },
   // B122：联系人和重要日期
   { path: "/contacts", label: "Contacts", icon: Users, group: "personal" },
-  { path: "/servers", label: "Servers", icon: Server, group: "machines" },
-  // 用户 2026-10-05 要求：云盘放在服务器下面
-  { path: "/drive", label: "Drive", icon: HardDrive, group: "machines" },
-  { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
+  { path: "/recipes", label: "Recipes", icon: ChefHat, group: "personal" },
+  { path: "/forecasts", label: "Forecasts", icon: Scale, group: "personal" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
   // B120：密钥和令牌。用户 2026-10-10 要求放在监控下面
   {
@@ -122,15 +129,6 @@ export const navItems: NavItem[] = [
     icon: KeyRound,
     group: "machines",
   },
-  // B116：电脑时间去向
-  {
-    path: "/screentime",
-    label: "Screen time",
-    icon: Hourglass,
-    group: "machines",
-  },
-  { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
-  { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
   {
     path: "/automations",
     label: "Automations",
@@ -151,29 +149,54 @@ export const navGroupLabels: Record<NavGroup, string> = {
  * 合并后在左栏和启动台里只占一个位置，二级菜单顶部可以在组里切换。地址都不变。
  */
 export const navMerges: Record<string, string[]> = {
+  "/coding": ["/coding", "/github"],
   // B198：知识库单独成一个入口，合在笔记里找不到
-  "/notes": ["/notes", "/readlater", "/cards"],
-  "/habits": ["/habits", "/goals", "/checkins", "/experiments"],
-  "/home": ["/home", "/router"],
+  "/notes": ["/notes", "/readlater", "/cards", "/feeds"],
+  "/calendar": ["/calendar", "/reminders", "/plan", "/inbox"],
+  "/servers": ["/servers", "/pc", "/router", "/home", "/screentime"],
+  "/habits": [
+    "/habits",
+    "/goals",
+    "/checkins",
+    "/experiments",
+    "/skills",
+    "/documents",
+    "/contacts",
+    "/recipes",
+    "/forecasts",
+  ],
+  "/monitoring": ["/monitoring", "/credentials", "/automations"],
 };
 
 /** 合并入口在左栏和启动台里用的名字，没写的用入口自己的名字。 */
 export const navEntryLabels: Record<string, string> = {
-  "/home": "Home and network",
+  "/servers": "Devices",
+  "/habits": "Personal",
+  "/monitoring": "Ops",
+};
+
+/** 合并入口使用独立图标，功能本身的图标保持原样。 */
+export const navEntryIcons: Record<string, LucideIcon> = {
+  "/servers": Network,
+  "/habits": CircleUserRound,
+  "/monitoring": SlidersHorizontal,
 };
 
 /** 左栏默认固定的入口（B179）。今日一直在顶部，不在这里。 */
 export const defaultNavPins = [
   "/projects",
   "/coding",
+  "/-/1",
   "/notes",
   "/ask",
-  "/calendar",
-  "/reminders",
   "/mail",
+  "/calendar",
   "/music",
   "/drive",
+  "/-/2",
   "/servers",
+  "/habits",
+  "/monitoring",
 ];
 
 /** 功能所在的入口地址。不在合并组里的就是它自己。 */

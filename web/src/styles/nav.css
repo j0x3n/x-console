@@ -391,6 +391,22 @@
   padding-bottom: 8px;
   border-bottom: 1px solid var(--xc-border);
 }
+.nav-merge .nav-child {
+  height: 34px;
+}
+.nav-merge.two-columns .nav-panel-group {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.nav-merge.two-columns .nav-child {
+  height: 28px;
+  padding: 0 6px;
+  gap: 5px;
+  font-size: var(--fs-12);
+}
+.nav-merge.two-columns .nav-child-mark {
+  width: 14px;
+  height: 14px;
+}
 .launcher-backdrop {
   z-index: 60;
 }

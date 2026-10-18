@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B250（2026-10-19）：XC-57 合并左栏入口，需要调整公共导航 `app/nav.ts`、`components/layout/` 和 `styles/nav.css`。增加入口名称和图标覆盖，默认固定 11 个入口。旧 `navPins` 按 `entryOf` 映射并去重，保留顺序和分隔线。只在用户调整固定项时保存新列表，不主动重写后端偏好。个人组超过 5 个可见功能时显示两列。合并组的角标、动态图标和状态组件按来源模块设置 key，避免延迟注册导致 Hook 数量变化。页面地址、API 字段和后端校验保持不变，不加迁移。
+
 - B246（2026-10-17）：公共组件 `components/markdown/Markdown` 的 `snapshot` 加可选的 `tables: "cards" | "wide"`。为 `cards` 时，4 列及以上的表格画成卡片（`.xc-md-cards` > `dl.xc-md-card`，第一列是 `.xc-md-card-head`），`markdown.css` 加了卡片样式。不传时和原来一样。不改接口。
 
 - B245（2026-10-17）：公共组件 `components/markdown/Markdown` 的表格外层 `.xc-md-table` 改由 `TableBlock` 渲染，右边还有没露出来的列时加 `more` 类（截图模式不加）。`markdown.css` 加：`.more` 右边缘淡出；640px 以下第一列 `position: sticky`，其余列 `min-width: 6em`。新 CSS 变量 `--xc-md-bg` 是固定列的底色，默认 `--xc-bg`，`.xc-card` 设成 `--xc-surface`，`.xc-dialog` 设成 `--xc-elevated`；Markdown 放在别的底色上时设这个变量。不改接口。

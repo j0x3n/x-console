@@ -290,18 +290,18 @@ function RailLink({
       className={`nav-rail-item${selected ? " selected" : ""}`}
     >
       {iconHook ? (
-        <NavIconMark hook={iconHook} fallback={Icon} />
+        <NavIconMark key={keys.icon} hook={iconHook} fallback={Icon} />
       ) : (
         <Icon size={18} strokeWidth={1.6} />
       )}
       {badgeHook ? (
-        <NavBadgeMark hook={badgeHook} />
+        <NavBadgeMark key={keys.badge} hook={badgeHook} />
       ) : (
-        statusHook && <NavStatusDot hook={statusHook} />
+        statusHook && <NavStatusDot key={keys.status} hook={statusHook} />
       )}
       <span className="nav-rail-tip">
         {t(label)}
-        {statusHook && <NavStatusText hook={statusHook} />}
+        {statusHook && <NavStatusText key={keys.status} hook={statusHook} />}
       </span>
     </NavLink>
   );
@@ -324,7 +324,7 @@ export function useCurrentNavPanel() {
   const visibleMembers = (entry ? (navMerges[entry] ?? []) : []).filter((p) =>
     modules.has(moduleOfPath(p)),
   );
-  const merged = visibleMembers.length > 1;
+  const merged = visibleMembers.length > 0;
   const Panel = merged
     ? MergedNavPanel
     : current
@@ -352,7 +352,7 @@ function MergedNavPanel({ onNavigate }: { onNavigate: () => void }) {
   const Inner = currentPath ? children[currentPath] : undefined;
   return (
     <>
-      <div className="nav-merge">
+      <div className={`nav-merge${members.length > 5 ? " two-columns" : ""}`}>
         <NavPanelGroup>
           {members.map((m) => (
             <NavPanelLink

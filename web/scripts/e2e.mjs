@@ -324,20 +324,78 @@ try {
   const runPart = (n) =>
     !process.env.XC_E2E_PART || process.env.XC_E2E_PART === n;
   if (runPart("1")) {
-    setStage("B179 启动台固定入口，合并组高亮");
+    setStage("B250 旧固定项兼容、启动台固定入口、合并组切换");
     await page.goto(`${base}/`);
     const rail = page.locator(".sidebar .nav-rail");
-    await rail.getByRole("button", { name: "全部功能" }).click();
-    const launcher = page.getByRole("dialog", { name: "全部功能" });
-    await launcher.getByRole("button", { name: "固定到左栏: 联系人" }).click();
-    await page.keyboard.press("Escape");
-    await rail.getByRole("link", { name: "联系人" }).waitFor();
-    await until("左栏固定存到服务端", async () => {
-      const prefs = await api("/me/preferences");
-      return prefs.navPins?.includes("/contacts");
+    const preferences = await api("/me/preferences");
+    const originalPins = preferences.navPins ?? [
+      "/projects",
+      "/coding",
+      "/-/1",
+      "/notes",
+      "/ask",
+      "/mail",
+      "/calendar",
+      "/music",
+      "/drive",
+      "/-/2",
+      "/servers",
+      "/habits",
+      "/monitoring",
+    ];
+    const legacyPins = [
+      "/github",
+      "/coding",
+      "/router",
+      "/home",
+      "/reminders",
+      "/contacts",
+    ];
+    await send("PUT", "/me/preferences", {
+      ...preferences,
+      navPins: legacyPins,
     });
     await page.reload();
-    await rail.getByRole("link", { name: "联系人" }).waitFor();
+    await rail.getByRole("link", { name: "设备", exact: true }).waitFor();
+    assert.equal(
+      await rail.getByRole("link", { name: "设备", exact: true }).count(),
+      1,
+    );
+    await rail.getByRole("link", { name: "日程", exact: true }).waitFor();
+    assert.deepEqual((await api("/me/preferences")).navPins, legacyPins);
+    await rail.getByRole("button", { name: "全部功能" }).click();
+    const launcher = page.getByRole("dialog", { name: "全部功能" });
+    await launcher.getByRole("button", { name: "从左栏移除: 个人" }).click();
+    await launcher.getByRole("button", { name: "固定到左栏: 个人" }).click();
+    await page.keyboard.press("Escape");
+    await rail.getByRole("link", { name: "个人", exact: true }).waitFor();
+    await until("左栏固定存到服务端", async () => {
+      const prefs = await api("/me/preferences");
+      return prefs.navPins?.includes("/habits");
+    });
+    await page.reload();
+    await rail.getByRole("link", { name: "个人", exact: true }).waitFor();
+    await page.goto(`${base}/recipes`);
+    await page.locator(".nav-merge.two-columns").waitFor();
+    assert.ok(
+      (
+        await rail
+          .getByRole("link", { name: "个人", exact: true })
+          .getAttribute("class")
+      ).includes("selected"),
+    );
+    await page
+      .locator(".nav-merge")
+      .getByRole("link", { name: "联系人", exact: true })
+      .click();
+    await page.waitForURL(`${base}/contacts`);
+    assert.equal(
+      await page
+        .locator(".nav-merge")
+        .getByRole("link", { name: "联系人", exact: true })
+        .getAttribute("aria-current"),
+      "page",
+    );
     // 稍后阅读合并在“笔记”里：左栏高亮笔记，二级菜单顶部能切到复习卡片
     await page.goto(`${base}/readlater`);
     await page
@@ -350,9 +408,11 @@ try {
       ).includes("selected"),
     );
     // 还原，不影响后面的步骤
-    await rail.getByRole("button", { name: "全部功能" }).click();
-    await launcher.getByRole("button", { name: "从左栏移除: 联系人" }).click();
-    await page.keyboard.press("Escape");
+    await send("PUT", "/me/preferences", {
+      ...preferences,
+      navPins: originalPins,
+    });
+    await page.reload();
     setStage("B32 AI 供应商和浮窗");
     const aiFake = http.createServer(async (request, response) => {
       if (request.url === "/v1/models") {
