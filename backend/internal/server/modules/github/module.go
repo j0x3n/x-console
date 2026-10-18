@@ -64,6 +64,9 @@ type Module struct {
 	jobs        jobsCache
 	usage       usageCache // B109
 
+	workflows  workflowsCache // B248
+	actionRuns actionRunsRefresh
+
 	syncMu  sync.Mutex // one sync at a time
 	stateMu sync.Mutex
 	syncing bool
@@ -114,6 +117,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("github.sync", syncInterval, m.scheduledSync)
 	m.d.Scheduler.Every("github.notify", time.Minute, m.flushNotify)
 	m.d.Scheduler.Every("github.ci_quota", usageCheckInterval, m.checkCIQuota)
+	m.d.Scheduler.Every("github.action_runs", 5*time.Second, m.refreshActionRuns)
 	return nil
 }
 

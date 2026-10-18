@@ -59,6 +59,8 @@ export const githubKeys = {
   jobs: (runId: number) => ["github", "jobs", runId] as const,
   notify: ["github", "notify"] as const,
   actionsUsage: ["github", "actions-usage"] as const,
+  workflows: (repo: string, connectionId: number) =>
+    ["github", "workflows", connectionId, repo] as const,
 };
 
 export const linearKeys = {
@@ -366,5 +368,102 @@ export function useActionsUsage(enabled = true) {
     staleTime: 5 * 60_000,
     meta: { silentError: true },
     enabled,
+  });
+}
+
+/* ---- B248：手动运行工作流、重跑失败的任务 ---- */
+
+export type GitHubWorkflow = ghComponents["schemas"]["GitHubWorkflow"];
+export type GitHubWorkflowInput =
+  ghComponents["schemas"]["GitHubWorkflowInput"];
+
+/** 定位一个仓库：owner/name 加 Git 账号。 */
+export interface RepoRef {
+  repo: string;
+  connectionId: number;
+}
+
+function repoPath(ref: RepoRef) {
+  const [owner, ...rest] = ref.repo.split("/");
+  return { owner, repo: rest.join("/") };
+}
+
+function connectionQuery(ref: RepoRef) {
+  return ref.connectionId ? { connectionId: ref.connectionId } : {};
+}
+
+/** 能手动运行的工作流。后端缓存 5 分钟，refresh 时跳过缓存。 */
+export function useWorkflows(ref: RepoRef) {
+  const qc = useQueryClient();
+  const key = githubKeys.workflows(ref.repo, ref.connectionId);
+  const fetchList = (refresh: boolean) =>
+    unwrap(
+      githubApi.GET("/github/repos/{owner}/{repo}/workflows", {
+        params: {
+          path: repoPath(ref),
+          query: { ...connectionQuery(ref), ...(refresh ? { refresh } : {}) },
+        },
+      }),
+    );
+  const query = useQuery({
+    queryKey: key,
+    queryFn: () => fetchList(false),
+    retry: (count, error) => !isNotLive(error) && count < 1,
+    staleTime: 5 * 60_000,
+  });
+  const refresh = useMutation({
+    mutationFn: () => fetchList(true),
+    onSuccess: (data) => qc.setQueryData(key, data),
+  });
+  return { query, refresh };
+}
+
+/** 运行工作流可能部署线上，服务端要求二次验证。 */
+export function useDispatchWorkflow(ref: RepoRef) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      workflowId: number;
+      ref: string;
+      inputs: Record<string, string>;
+    }) =>
+      withElevation(() =>
+        unwrap(
+          githubApi.POST(
+            "/github/repos/{owner}/{repo}/workflows/{workflowId}/dispatches",
+            {
+              params: {
+                path: { ...repoPath(ref), workflowId: body.workflowId },
+                query: connectionQuery(ref),
+              },
+              body: { ref: body.ref, inputs: body.inputs },
+            },
+          ),
+        ),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: githubKeys.runs }),
+  });
+}
+
+export function useRerunFailedJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (run: Pick<GitHubRun, "id" | "repo" | "connectionId">) => {
+      const ref = { repo: run.repo, connectionId: run.connectionId ?? 0 };
+      return withElevation(() =>
+        unwrap(
+          githubApi.POST(
+            "/github/repos/{owner}/{repo}/runs/{runId}/rerun-failed",
+            {
+              params: {
+                path: { ...repoPath(ref), runId: run.id },
+                query: connectionQuery(ref),
+              },
+            },
+          ),
+        ),
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: githubKeys.runs }),
   });
 }

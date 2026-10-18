@@ -5,6 +5,73 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /github/repos/{owner}/{repo}/workflows:
+    get:
+      operationId: listGitHubRepoWorkflows
+      tags: [github]
+      description: B248。只列关注的 GitHub 仓库中支持手动运行的工作流，缓存 5 分钟。多个账号关注同名仓库时需指定 connectionId。
+      parameters:
+        - $ref: "#/components/parameters/RepoOwner"
+        - $ref: "#/components/parameters/RepoName"
+        - $ref: "#/components/parameters/ConnectionQuery"
+        - name: refresh
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 可手动运行的工作流
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/GitHubWorkflow" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/repos/{owner}/{repo}/workflows/{workflowId}/dispatches:
+    post:
+      operationId: dispatchGitHubRepoWorkflow
+      tags: [github]
+      description: B248。手动运行关注的 GitHub 仓库工作流，需要二次验证。
+      parameters:
+        - $ref: "#/components/parameters/RepoOwner"
+        - $ref: "#/components/parameters/RepoName"
+        - $ref: "#/components/parameters/ConnectionQuery"
+        - name: workflowId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitHubWorkflowDispatch" }
+      responses:
+        "204":
+          description: 已提交
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/repos/{owner}/{repo}/runs/{runId}/rerun-failed:
+    post:
+      operationId: rerunGitHubRepoFailedJobs
+      tags: [github]
+      description: B248。重新运行关注的 GitHub 仓库中失败的任务，需要二次验证。
+      parameters:
+        - $ref: "#/components/parameters/RepoOwner"
+        - $ref: "#/components/parameters/RepoName"
+        - $ref: "#/components/parameters/ConnectionQuery"
+        - name: runId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "204":
+          description: 已提交
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /github/config:
     get:
       operationId: getGitHubConfig
@@ -289,12 +356,54 @@ paths:
           $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
+    RepoOwner:
+      name: owner
+      in: path
+      required: true
+      schema: { type: string }
+    RepoName:
+      name: repo
+      in: path
+      required: true
+      schema: { type: string }
     ConnectionQuery:
       name: connectionId
       in: query
       description: B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
       schema: { type: integer, format: int64 }
   schemas:
+    GitHubWorkflow:
+      type: object
+      required: [id, name, path, inputs]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        path: { type: string }
+        inputs:
+          type: array
+          items: { $ref: "#/components/schemas/GitHubWorkflowInput" }
+    GitHubWorkflowInput:
+      type: object
+      required: [name, description, type, required, options]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        type:
+          type: string
+          enum: [string, choice, boolean, number, environment]
+        required: { type: boolean }
+        default: { type: string, description: 默认值统一转成字符串，未定义时省略 }
+        options:
+          type: array
+          items: { type: string }
+    GitHubWorkflowDispatch:
+      type: object
+      required: [ref, inputs]
+      properties:
+        ref: { type: string, minLength: 1 }
+        inputs:
+          type: object
+          additionalProperties: { type: string }
     Forge:
       type: string
       enum: [github, forgejo]

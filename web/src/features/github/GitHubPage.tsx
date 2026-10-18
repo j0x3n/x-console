@@ -19,7 +19,10 @@ import {
   Layers,
   Loader,
   Lock,
+  ListPlus,
+  Play,
   RefreshCw,
+  RotateCcw,
   Settings,
 } from "lucide-react";
 import { ApiError, errorMessage, isNotLive } from "../../api/client";
@@ -41,6 +44,7 @@ import {
   useGitHubIssues,
   useGitHubStatus,
   usePulls,
+  useRerunFailedJobs,
   useRunJobs,
   useRuns,
   useSyncGitHub,
@@ -73,6 +77,9 @@ import {
 } from "./logic";
 import { useRepoList } from "./useRepoList";
 import NotifyDialog from "./NotifyDialog";
+import ManageReposDialog from "./ManageRepos";
+import RunWorkflowDialog from "./RunWorkflow";
+import { useConnections } from "../aiagents/api";
 import { ForgeIcon, RepoSwatch } from "./RepoBits";
 
 type Tab = "pulls" | "commits" | "runs" | "issues";
@@ -92,6 +99,18 @@ export default function GitHubPage() {
     : "pulls";
   const repoParam = params.get("repo") ?? "";
   const sel: Selection = repoParam ? parseRepoKey(repoParam) : null;
+  // B248：?manage=1 打开“管理仓库”弹窗，设置页的链接也用它
+  const managing = params.get("manage") === "1";
+  const setManaging = (open: boolean) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (open) p.set("manage", "1");
+        else p.delete("manage");
+        return p;
+      },
+      { replace: true },
+    );
   const setView = (next: { tab?: Tab; repo?: string | null }) =>
     setParams(
       (prev) => {
@@ -122,12 +141,10 @@ export default function GitHubPage() {
         {status.data.lastError && <SyncError message={status.data.lastError} />}
         {status.data.repoCount === 0 && (
           <div className="xc-card github-notice" role="status">
-            <span>
-              {t("No watched repositories yet. Pick some in settings.")}
-            </span>
-            <Link className="xc-btn small" to="/settings/git">
-              {t("Settings")}
-            </Link>
+            <span>{t("No watched repositories yet.")}</span>
+            <button className="xc-btn small" onClick={() => setManaging(true)}>
+              {t("Manage repositories")}
+            </button>
           </div>
         )}
         <GitHubStats status={status.data} />
@@ -148,9 +165,22 @@ export default function GitHubPage() {
             ? `${status.data.login ? `@${status.data.login} · ` : ""}${status.data.repoCount} ${t("repositories watched")}`
             : undefined
         }
-        aside={status.data?.configured && <SyncControl status={status.data} />}
+        aside={
+          status.data?.configured && (
+            <>
+              <SyncControl status={status.data} />
+              <button
+                className="xc-btn small"
+                onClick={() => setManaging(true)}
+              >
+                <ListPlus size={14} /> {t("Manage repositories")}
+              </button>
+            </>
+          )
+        }
       />
       {content}
+      {managing && <ManageReposDialog onClose={() => setManaging(false)} />}
     </div>
   );
 }
@@ -181,7 +211,12 @@ function ReposBody({
     // B103：仓库列表在左栏二级菜单里，页面不再放一份
     <div className="repos-layout">
       <section className="repos-main">
-        <RepoHeader sel={sel} row={current} total={list.rows.length} />
+        <RepoHeader
+          sel={sel}
+          row={current}
+          total={list.rows.length}
+          tab={tab}
+        />
         <nav className="xc-tabs repos-tabs">
           {(
             [
@@ -242,14 +277,17 @@ function RepoHeader({
   sel,
   row,
   total,
+  tab,
 }: {
   sel: Selection;
   row: RepoRow | null;
   total: number;
+  tab: Tab;
 }) {
   const t = useT();
   const language = useLanguage();
   const [notifyOpen, setNotifyOpen] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
   if (!sel)
     return (
       <header className="repos-head">
@@ -288,6 +326,18 @@ function RepoHeader({
         </span>
       )}
       <span className="xc-spacer" />
+      {/* B248：只对 GitHub 仓库显示，Forgejo 先不做 */}
+      {tab === "runs" && row?.forge === "github" && (
+        <button
+          type="button"
+          className="xc-btn small"
+          title={t("Run workflow")}
+          onClick={() => setRunOpen(true)}
+        >
+          <Play size={14} />
+          <span className="repos-btn-text">{t("Run workflow")}</span>
+        </button>
+      )}
       {row && (
         <button
           type="button"
@@ -322,6 +372,13 @@ function RepoHeader({
       )}
       {notifyOpen && row && (
         <NotifyDialog row={row} onClose={() => setNotifyOpen(false)} />
+      )}
+      {runOpen && row && (
+        <RunWorkflowDialog
+          repo={{ repo: row.repo, connectionId: row.connectionId }}
+          defaultBranch={row.defaultBranch}
+          onClose={() => setRunOpen(false)}
+        />
       )}
     </header>
   );
@@ -510,17 +567,41 @@ function SyncError({ message }: { message: string }) {
   );
 }
 
+/** 还没同步过：没有 Git 账号时去设置加账号，有账号时直接打开“管理仓库”（B248）。 */
 function SetupGuide() {
   const t = useT();
+  const accounts = useConnections();
+  const [, setParams] = useSearchParams();
+  const onManage = () =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.set("manage", "1");
+        return p;
+      },
+      { replace: true },
+    );
+  const hasAccount = (accounts.data?.length ?? 0) > 0;
   return (
     <EmptyState title={t("Connect a Git account")} icon={<Github size={28} />}>
-      <span>
-        在设置里添加 GitHub 或 Forgejo 账号，选好要关注的仓库，就能在这里看
-        PR、提交、CI 和 Issue。
-      </span>
-      <Link className="xc-btn small primary" to="/settings/git">
-        <Settings size={14} /> {t("Go to settings")}
-      </Link>
+      {hasAccount ? (
+        <>
+          <span>选好要关注的仓库，就能在这里看 PR、提交、CI 和 Issue。</span>
+          <button className="xc-btn small primary" onClick={onManage}>
+            <ListPlus size={14} /> {t("Manage repositories")}
+          </button>
+        </>
+      ) : (
+        <>
+          <span>
+            先在设置里添加 GitHub 或 Forgejo
+            账号，再选要关注的仓库，就能在这里看 PR、提交、CI 和 Issue。
+          </span>
+          <Link className="xc-btn small primary" to="/settings/git">
+            <Settings size={14} /> {t("Go to settings")}
+          </Link>
+        </>
+      )}
     </EmptyState>
   );
 }
@@ -867,8 +948,46 @@ function RunItem({ run, showRepo }: { run: GitHubRun; showRepo: boolean }) {
           <Loader size={11} className="github-spin" /> {run.currentStep}
         </p>
       )}
+      {open && canRerun(run) && <RerunFailed run={run} />}
       {open && <RunJobs run={run} />}
     </li>
+  );
+}
+
+/** B248：GitHub 上失败的运行可以只重跑失败的任务。 */
+function canRerun(run: GitHubRun) {
+  return (
+    run.forge !== "forgejo" &&
+    run.status === "completed" &&
+    runOutcome(run).tone === "danger"
+  );
+}
+
+function RerunFailed({ run }: { run: GitHubRun }) {
+  const t = useT();
+  const rerun = useRerunFailedJobs();
+  const [error, setError] = useState("");
+  return (
+    <div className="repos-run-actions">
+      <button
+        type="button"
+        className="xc-btn small"
+        disabled={rerun.isPending}
+        onClick={async () => {
+          setError("");
+          try {
+            await rerun.mutateAsync(run);
+            toast(t("Rerun submitted. It shows up in CI runs in a moment."));
+          } catch (err) {
+            if (!(err instanceof ApiError && err.code === "elevation_canceled"))
+              setError(errorMessage(err));
+          }
+        }}
+      >
+        <RotateCcw size={14} /> {t("Rerun failed jobs")}
+      </button>
+      {error && <p className="xc-error-text">{error}</p>}
+    </div>
   );
 }
 

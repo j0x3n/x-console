@@ -50,7 +50,10 @@ func (e *apiError) Error() string {
 }
 
 // rateLimitError means calls are paused until Until.
-type rateLimitError struct{ Until time.Time }
+type rateLimitError struct {
+	Until    time.Time
+	Response *apiError
+}
 
 func (e *rateLimitError) Error() string {
 	return "GitHub 请求次数用完了，" + e.Until.Local().Format("15:04") + " 以后再试"
@@ -249,7 +252,11 @@ func (c *restClient) do(ctx context.Context, method, path string, query url.Valu
 	}
 	if c.rate.observe(resp.Header, resp.StatusCode, c.now()) {
 		until, _ := c.rate.blocked(c.now())
-		return false, &rateLimitError{Until: until}
+		var body struct {
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(raw, &body)
+		return false, &rateLimitError{Until: until, Response: &apiError{Status: resp.StatusCode, Message: body.Message}}
 	}
 	hasNext := linkNext(resp.Header.Get("Link"))
 	switch {

@@ -15,3 +15,5 @@ func (m *Module) MigrateB62(ctx context.Context) error   { return m.migrateB62(c
 func (m *Module) MigrateB70(ctx context.Context) error   { return m.migrateB70(ctx) }
 func (m *Module) FlushNotify(ctx context.Context) error  { return m.flushNotify(ctx) }
 func (m *Module) CheckCIQuota(ctx context.Context) error { return m.checkCIQuota(ctx) }
+
+func (m *Module) RefreshActionRuns(ctx context.Context) error { return m.refreshActionRuns(ctx) }

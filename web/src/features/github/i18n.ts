@@ -23,8 +23,7 @@ registerZh({
     "本月 CI 时长用到 80% 和 100% 时通知",
   // B70：仓库页
   "Git & repositories": "Git 与仓库",
-  "No watched repositories yet. Pick some in settings.":
-    "还没有关注的仓库，去设置里选几个。",
+  "No watched repositories yet.": "还没有关注的仓库。",
   Commits: "提交",
   "All repositories": "全部仓库",
   "No watched repositories": "还没有关注的仓库",
@@ -79,7 +78,12 @@ registerZh({
   "GitHub page": "GitHub 页面",
   "GitHub account": "用哪个 GitHub 账号",
   "Not selected": "未选择",
-  "Add a GitHub account above first.": "先在上面添加一个 GitHub 账号。",
+  "Add a GitHub account in settings first.":
+    "先在设置 → Git 里添加一个 GitHub 账号。",
+  // B248：关注的仓库搬到仓库页
+  "Manage repositories": "管理仓库",
+  "Pick repositories on the repositories page.":
+    "关注哪些仓库、同步状态和每月 CI 分钟数，在仓库页里改。",
   "Using the token from the old GitHub settings. Pick an account to switch.":
     "现在用的是旧 GitHub 设置里的令牌。选一个账号就换过去。",
   "Git accounts are managed in settings": "Git 账号在设置里管理",
@@ -210,4 +214,16 @@ registerZh({
   "Slowed down because few requests are left": "剩余额度不多，已经放慢",
   Repositories: "仓库",
   Clear: "清除",
+  // B248：手动运行工作流
+  "Run workflow": "运行工作流",
+  "Start run": "运行",
+  Refresh: "刷新",
+  "Reload the workflow list": "重新读取工作流列表",
+  "Submitted. It shows up in CI runs in a moment.":
+    "已提交，运行记录里一会儿就能看到",
+  "No workflow in this repository can be run by hand. Add workflow_dispatch under on: in the workflow file.":
+    "这个仓库没有能手动运行的工作流。在工作流文件的 on: 下面加 workflow_dispatch 就行。",
+  "Rerun failed jobs": "重新运行失败的任务",
+  "Rerun submitted. It shows up in CI runs in a moment.":
+    "已提交重新运行，运行记录里一会儿就能看到",
 });

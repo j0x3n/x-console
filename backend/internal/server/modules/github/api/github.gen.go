@@ -125,6 +125,33 @@ func (e GitHubReviewState) Valid() bool {
 	}
 }
 
+// Defines values for GitHubWorkflowInputType.
+const (
+	Boolean     GitHubWorkflowInputType = "boolean"
+	Choice      GitHubWorkflowInputType = "choice"
+	Environment GitHubWorkflowInputType = "environment"
+	Number      GitHubWorkflowInputType = "number"
+	String      GitHubWorkflowInputType = "string"
+)
+
+// Valid indicates whether the value is a known member of the GitHubWorkflowInputType enum.
+func (e GitHubWorkflowInputType) Valid() bool {
+	switch e {
+	case Boolean:
+		return true
+	case Choice:
+		return true
+	case Environment:
+		return true
+	case Number:
+		return true
+	case String:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RepoNotifyCiBranches.
 const (
 	All     RepoNotifyCiBranches = "all"
@@ -437,6 +464,34 @@ type GitHubTestResult struct {
 	RateLimitRemaining *int    `json:"rateLimitRemaining,omitempty"`
 }
 
+// GitHubWorkflow defines model for GitHubWorkflow.
+type GitHubWorkflow struct {
+	Id     int64                 `json:"id"`
+	Inputs []GitHubWorkflowInput `json:"inputs"`
+	Name   string                `json:"name"`
+	Path   string                `json:"path"`
+}
+
+// GitHubWorkflowDispatch defines model for GitHubWorkflowDispatch.
+type GitHubWorkflowDispatch struct {
+	Inputs map[string]string `json:"inputs"`
+	Ref    string            `json:"ref"`
+}
+
+// GitHubWorkflowInput defines model for GitHubWorkflowInput.
+type GitHubWorkflowInput struct {
+	// Default 默认值统一转成字符串，未定义时省略
+	Default     *string                 `json:"default,omitempty"`
+	Description string                  `json:"description"`
+	Name        string                  `json:"name"`
+	Options     []string                `json:"options"`
+	Required    bool                    `json:"required"`
+	Type        GitHubWorkflowInputType `json:"type"`
+}
+
+// GitHubWorkflowInputType defines model for GitHubWorkflowInput.Type.
+type GitHubWorkflowInputType string
+
 // RepoNotify defines model for RepoNotify.
 type RepoNotify struct {
 	// CiBranches CI 事件看哪些分支。default 只看默认分支
@@ -515,6 +570,12 @@ type WatchedRepo struct {
 // ConnectionQuery defines model for ConnectionQuery.
 type ConnectionQuery = int64
 
+// RepoName defines model for RepoName.
+type RepoName = string
+
+// RepoOwner defines model for RepoOwner.
+type RepoOwner = string
+
 // GetGitHubActionsUsageParams defines parameters for GetGitHubActionsUsage.
 type GetGitHubActionsUsageParams struct {
 	Refresh *bool `form:"refresh,omitempty" json:"refresh,omitempty"`
@@ -554,6 +615,25 @@ type ListGitHubPullsParams struct {
 	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
 }
 
+// RerunGitHubRepoFailedJobsParams defines parameters for RerunGitHubRepoFailedJobs.
+type RerunGitHubRepoFailedJobsParams struct {
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
+}
+
+// ListGitHubRepoWorkflowsParams defines parameters for ListGitHubRepoWorkflows.
+type ListGitHubRepoWorkflowsParams struct {
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
+	Refresh      *bool            `form:"refresh,omitempty" json:"refresh,omitempty"`
+}
+
+// DispatchGitHubRepoWorkflowParams defines parameters for DispatchGitHubRepoWorkflow.
+type DispatchGitHubRepoWorkflowParams struct {
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
+}
+
 // ListGitHubRunsParams defines parameters for ListGitHubRuns.
 type ListGitHubRunsParams struct {
 	Repo *string `form:"repo,omitempty" json:"repo,omitempty"`
@@ -576,6 +656,9 @@ type PutGitHubConfigJSONRequestBody = GitHubConfigInput
 
 // PutGitHubNotifyJSONRequestBody defines body for PutGitHubNotify for application/json ContentType.
 type PutGitHubNotifyJSONRequestBody = GitHubNotifySettings
+
+// DispatchGitHubRepoWorkflowJSONRequestBody defines body for DispatchGitHubRepoWorkflow for application/json ContentType.
+type DispatchGitHubRepoWorkflowJSONRequestBody = GitHubWorkflowDispatch
 
 // TestGitHubJSONRequestBody defines body for TestGitHub for application/json ContentType.
 type TestGitHubJSONRequestBody = GitHubTestInput
@@ -612,6 +695,15 @@ type ServerInterface interface {
 
 	// (GET /github/repos)
 	ListGitHubWatchedRepos(w http.ResponseWriter, r *http.Request)
+
+	// (POST /github/repos/{owner}/{repo}/runs/{runId}/rerun-failed)
+	RerunGitHubRepoFailedJobs(w http.ResponseWriter, r *http.Request, owner RepoOwner, repo RepoName, runId int64, params RerunGitHubRepoFailedJobsParams)
+
+	// (GET /github/repos/{owner}/{repo}/workflows)
+	ListGitHubRepoWorkflows(w http.ResponseWriter, r *http.Request, owner RepoOwner, repo RepoName, params ListGitHubRepoWorkflowsParams)
+
+	// (POST /github/repos/{owner}/{repo}/workflows/{workflowId}/dispatches)
+	DispatchGitHubRepoWorkflow(w http.ResponseWriter, r *http.Request, owner RepoOwner, repo RepoName, workflowId int64, params DispatchGitHubRepoWorkflowParams)
 
 	// (GET /github/runs)
 	ListGitHubRuns(w http.ResponseWriter, r *http.Request, params ListGitHubRunsParams)
@@ -680,6 +772,21 @@ func (_ Unimplemented) ListGitHubPulls(w http.ResponseWriter, r *http.Request, p
 
 // (GET /github/repos)
 func (_ Unimplemented) ListGitHubWatchedRepos(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /github/repos/{owner}/{repo}/runs/{runId}/rerun-failed)
+func (_ Unimplemented) RerunGitHubRepoFailedJobs(w http.ResponseWriter, r *http.Request, owner RepoOwner, repo RepoName, runId int64, params RerunGitHubRepoFailedJobsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /github/repos/{owner}/{repo}/workflows)
+func (_ Unimplemented) ListGitHubRepoWorkflows(w http.ResponseWriter, r *http.Request, owner RepoOwner, repo RepoName, params ListGitHubRepoWorkflowsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /github/repos/{owner}/{repo}/workflows/{workflowId}/dispatches)
+func (_ Unimplemented) DispatchGitHubRepoWorkflow(w http.ResponseWriter, r *http.Request, owner RepoOwner, repo RepoName, workflowId int64, params DispatchGitHubRepoWorkflowParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1017,6 +1124,190 @@ func (siw *ServerInterfaceWrapper) ListGitHubWatchedRepos(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// RerunGitHubRepoFailedJobs operation middleware
+func (siw *ServerInterfaceWrapper) RerunGitHubRepoFailedJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "owner" -------------
+	var owner RepoOwner
+
+	err = runtime.BindStyledParameterWithOptions("simple", "owner", chi.URLParam(r, "owner"), &owner, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "repo" -------------
+	var repo RepoName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "repo", chi.URLParam(r, "repo"), &repo, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repo", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runId" -------------
+	var runId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RerunGitHubRepoFailedJobsParams
+
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RerunGitHubRepoFailedJobs(w, r, owner, repo, runId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGitHubRepoWorkflows operation middleware
+func (siw *ServerInterfaceWrapper) ListGitHubRepoWorkflows(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "owner" -------------
+	var owner RepoOwner
+
+	err = runtime.BindStyledParameterWithOptions("simple", "owner", chi.URLParam(r, "owner"), &owner, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "repo" -------------
+	var repo RepoName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "repo", chi.URLParam(r, "repo"), &repo, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repo", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGitHubRepoWorkflowsParams
+
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "refresh" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "refresh", r.URL.Query(), &params.Refresh, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "refresh"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "refresh", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGitHubRepoWorkflows(w, r, owner, repo, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DispatchGitHubRepoWorkflow operation middleware
+func (siw *ServerInterfaceWrapper) DispatchGitHubRepoWorkflow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "owner" -------------
+	var owner RepoOwner
+
+	err = runtime.BindStyledParameterWithOptions("simple", "owner", chi.URLParam(r, "owner"), &owner, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "repo" -------------
+	var repo RepoName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "repo", chi.URLParam(r, "repo"), &repo, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repo", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "workflowId" -------------
+	var workflowId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workflowId", chi.URLParam(r, "workflowId"), &workflowId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workflowId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DispatchGitHubRepoWorkflowParams
+
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DispatchGitHubRepoWorkflow(w, r, owner, repo, workflowId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListGitHubRuns operation middleware
 func (siw *ServerInterfaceWrapper) ListGitHubRuns(w http.ResponseWriter, r *http.Request) {
 
@@ -1286,6 +1577,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/repos/{owner}/{repo}/workflows", wrapper.ListGitHubRepoWorkflows)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/github/repos/{owner}/{repo}/workflows/{workflowId}/dispatches", wrapper.DispatchGitHubRepoWorkflow)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/github/repos/{owner}/{repo}/runs/{runId}/rerun-failed", wrapper.RerunGitHubRepoFailedJobs)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/github/config", wrapper.GetGitHubConfig)
 	})

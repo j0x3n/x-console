@@ -77,6 +77,47 @@ describe("GitHubPage", () => {
     expect(link.getAttribute("href")).toBe("/settings/git");
   });
 
+  it("B248: opens Manage repositories from the guide when there is an account", async () => {
+    responses.routes.set("/github/status", {
+      configured: false,
+      syncing: false,
+      repoCount: 0,
+    });
+    responses.routes.set("/git-connections", [
+      {
+        id: 1,
+        kind: "github",
+        name: "GitHub",
+        baseUrl: "https://api.github.com",
+        username: "jo",
+        hasToken: true,
+        webhookPath: "/webhooks/git/1",
+        lastError: "",
+        createdAt: "2026-09-01T00:00:00Z",
+      },
+    ]);
+    responses.routes.set("/github/config", { repos: [], watches: [] });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "管理仓库" }));
+    expect(
+      await screen.findByRole("dialog", { name: "管理仓库" }),
+    ).toBeTruthy();
+    expect(await screen.findByText("关注的仓库")).toBeTruthy();
+  });
+
+  it("B248: ?manage=1 opens the dialog directly", async () => {
+    responses.routes.set("/github/status", {
+      configured: true,
+      syncing: false,
+      repoCount: 0,
+    });
+    responses.routes.set("/github/config", { repos: [], watches: [] });
+    renderPage("/github?manage=1");
+    expect(
+      await screen.findByRole("dialog", { name: "管理仓库" }),
+    ).toBeTruthy();
+  });
+
   it("groups pull requests by repo with check badges and issue links", async () => {
     responses.routes.set("/github/status", {
       configured: true,

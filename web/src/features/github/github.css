@@ -503,6 +503,23 @@
   gap: 6px;
   margin: 0 0 12px 26px;
 }
+/* B248：失败运行展开后的“重新运行失败的任务” */
+.repos-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 26px;
+}
+.repos-run-actions .xc-error-text {
+  margin: 0;
+  flex-basis: 100%;
+}
+/* 运行工作流弹窗：GitHub 回的原话可能很长，保留换行 */
+.repos-run-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .repos-jobs-note {
   margin: 0 0 12px 26px;
   font-size: var(--fs-12-5);
@@ -661,4 +678,25 @@
   .xc-stats .github-ci-usage:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
+}
+
+/* B248：“管理仓库”弹窗。原来是设置页的几张卡片，放进弹窗后去掉卡片外框，用分隔线隔开 */
+.github-manage {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+.github-manage > .xc-card {
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--xc-border);
+  border-radius: 0;
+  background: transparent;
+}
+.github-manage > .xc-card:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+.github-manage .xc-card-head h2 {
+  font-size: var(--fs-13);
 }

@@ -2,6 +2,7 @@ package github_test
 
 import (
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -49,6 +50,17 @@ type fakeGitHub struct {
 	billingUsageStatus, billingActionsStatus int
 	billingRequests                          int
 	billingQuery                             string
+	workflows                                []map[string]any
+	workflowFiles                            map[string]string
+	workflowRequests, contentRequests        int
+	actionRequests                           []fakeActionRequest
+	actionStatus                             int
+	actionMessage                            string
+}
+
+type fakeActionRequest struct {
+	Method, Path string
+	Body         map[string]any
 }
 
 func newFakeGitHub(t *testing.T) *fakeGitHub {
@@ -59,6 +71,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		runs: map[string][]map[string]any{}, issues: map[string][]map[string]any{}, nextPR: 100,
 		commits: map[string][]map[string]any{}, jobs: map[string][]map[string]any{}, releases: map[string]map[string]any{},
 		publicRepos: map[string]bool{}, repoStatuses: map[string]int{}, repoRequests: map[string]int{},
+		workflowFiles: map[string]string{},
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -128,6 +141,36 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	var body any
 	switch {
+	case len(parts) == 5 && parts[3] == "actions" && parts[4] == "workflows":
+		f.workflowRequests++
+		if f.actionStatus != 0 {
+			w.WriteHeader(f.actionStatus)
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": f.actionMessage})
+			return
+		}
+		body = map[string]any{"workflows": f.page(w, r, f.workflows)}
+	case len(parts) > 4 && parts[3] == "contents":
+		f.contentRequests++
+		content, ok := f.workflowFiles[strings.Join(parts[4:], "/")]
+		if !ok {
+			w.WriteHeader(404)
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "Workflow file not found"})
+			return
+		}
+		body = map[string]string{"encoding": "base64", "content": base64.StdEncoding.EncodeToString([]byte(content))}
+	case r.Method == http.MethodPost && len(parts) == 7 && parts[3] == "actions" && (parts[6] == "dispatches" || parts[6] == "rerun-failed-jobs"):
+		var in map[string]any
+		if r.Body != nil {
+			_ = json.NewDecoder(r.Body).Decode(&in)
+		}
+		f.actionRequests = append(f.actionRequests, fakeActionRequest{r.Method, r.URL.Path, in})
+		if f.actionStatus != 0 {
+			w.WriteHeader(f.actionStatus)
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": f.actionMessage})
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
 	case r.URL.Path == "/user":
 		body = map[string]any{"login": f.login}
 	case len(parts) == 3 && parts[0] == "repos":
@@ -189,6 +232,23 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 		body = map[string]any{"total_count": len(runs), "check_runs": runs}
 	case len(parts) == 5 && parts[3] == "actions" && parts[4] == "runs":
 		body = map[string]any{"workflow_runs": orEmpty(f.runs[parts[1]+"/"+parts[2]])}
+	case len(parts) == 6 && parts[3] == "actions" && parts[4] == "runs":
+		if f.actionStatus != 0 {
+			w.WriteHeader(f.actionStatus)
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": f.actionMessage})
+			return
+		}
+		for _, run := range f.runs[parts[1]+"/"+parts[2]] {
+			if fmt.Sprint(run["id"]) == parts[5] {
+				body = run
+				break
+			}
+		}
+		if body == nil {
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "Run not found"})
+			return
+		}
 	case len(parts) == 4 && parts[3] == "commits":
 		body = f.page(w, r, f.commits[parts[1]+"/"+parts[2]])
 	case len(parts) == 7 && parts[3] == "actions" && parts[6] == "jobs":

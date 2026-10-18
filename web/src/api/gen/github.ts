@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/github/repos/{owner}/{repo}/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B248。只列关注的 GitHub 仓库中支持手动运行的工作流，缓存 5 分钟。多个账号关注同名仓库时需指定 connectionId。 */
+        get: operations["listGitHubRepoWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/github/repos/{owner}/{repo}/workflows/{workflowId}/dispatches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B248。手动运行关注的 GitHub 仓库工作流，需要二次验证。 */
+        post: operations["dispatchGitHubRepoWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/github/repos/{owner}/{repo}/runs/{runId}/rerun-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B248。重新运行关注的 GitHub 仓库中失败的任务，需要二次验证。 */
+        post: operations["rerunGitHubRepoFailedJobs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/github/config": {
         parameters: {
             query?: never;
@@ -248,6 +299,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        GitHubWorkflow: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            path: string;
+            inputs: components["schemas"]["GitHubWorkflowInput"][];
+        };
+        GitHubWorkflowInput: {
+            name: string;
+            description: string;
+            /** @enum {string} */
+            type: "string" | "choice" | "boolean" | "number" | "environment";
+            required: boolean;
+            /** @description 默认值统一转成字符串，未定义时省略 */
+            default?: string;
+            options: string[];
+        };
+        GitHubWorkflowDispatch: {
+            ref: string;
+            inputs: {
+                [key: string]: string;
+            };
+        };
         /**
          * @description B70。仓库在哪种服务上
          * @enum {string}
@@ -605,6 +679,8 @@ export interface components {
         };
     };
     parameters: {
+        RepoOwner: string;
+        RepoName: string;
         /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
         ConnectionQuery: number;
         Limit: number;
@@ -615,6 +691,92 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listGitHubRepoWorkflows: {
+        parameters: {
+            query?: {
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
+                refresh?: boolean;
+            };
+            header?: never;
+            path: {
+                owner: components["parameters"]["RepoOwner"];
+                repo: components["parameters"]["RepoName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 可手动运行的工作流 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["GitHubWorkflow"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    dispatchGitHubRepoWorkflow: {
+        parameters: {
+            query?: {
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
+            };
+            header?: never;
+            path: {
+                owner: components["parameters"]["RepoOwner"];
+                repo: components["parameters"]["RepoName"];
+                workflowId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubWorkflowDispatch"];
+            };
+        };
+        responses: {
+            /** @description 已提交 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rerunGitHubRepoFailedJobs: {
+        parameters: {
+            query?: {
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
+            };
+            header?: never;
+            path: {
+                owner: components["parameters"]["RepoOwner"];
+                repo: components["parameters"]["RepoName"];
+                runId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已提交 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getGitHubConfig: {
         parameters: {
             query?: never;

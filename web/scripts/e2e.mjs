@@ -2630,6 +2630,16 @@ try {
       assert.equal(restored.status(), 200, await restored.text());
     }
 
+    setStage("B248 仓库页打开管理仓库弹窗");
+    {
+      await page.goto(`${base}/github?manage=1`);
+      const manage = page.getByRole("dialog", { name: "管理仓库" });
+      await manage.getByRole("heading", { name: "关注的仓库" }).waitFor();
+      await page.keyboard.press("Escape");
+      await manage.waitFor({ state: "detached" });
+      assert.equal(new URL(page.url()).searchParams.get("manage"), null);
+    }
+
     setStage("B74 笔记背景色 API 主流程");
     {
       const colored = await page

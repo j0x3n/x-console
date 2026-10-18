@@ -53,17 +53,19 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import GitSettingsTab from "./GitSettingsTab";
+import { ManageRepos } from "./ManageRepos";
 
-function renderTab() {
+function renderTab(ui = <GitSettingsTab />) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <GitSettingsTab />
-      </MemoryRouter>
+      <MemoryRouter>{ui}</MemoryRouter>
     </QueryClientProvider>,
   );
 }
+
+/** B248：关注的仓库搬到仓库页的“管理仓库”弹窗。 */
+const renderManage = () => renderTab(<ManageRepos />);
 
 const config = {
   hasToken: true,
@@ -101,15 +103,25 @@ afterEach(() => {
 });
 
 describe("Git 与 GitHub 设置（B62）", () => {
-  it("lists GitHub and Forgejo accounts and only offers GitHub ones to the page", async () => {
+  it("B248: settings keep accounts and notifications, and link to the repositories page", async () => {
+    withAccounts();
+    api.routes.set("GET /github/config", () => ({ status: 200, body: config }));
+    renderTab();
+    await screen.findByText("家里");
+    expect(screen.queryByText("同步状态")).toBeNull();
+    expect(screen.queryByLabelText("用哪个 GitHub 账号")).toBeNull();
+    const link = screen.getByRole("link", { name: "管理仓库" });
+    expect(link.getAttribute("href")).toBe("/github?manage=1");
+  });
+
+  it("only offers GitHub accounts when picking repositories", async () => {
     withAccounts();
     api.routes.set("GET /github/config", () => ({ status: 200, body: config }));
     api.routes.set("GET /github/available-repos", () => ({
       status: 501,
       body: { code: "not_live", message: "not live" },
     }));
-    renderTab();
-    await screen.findByText("家里");
+    renderManage();
     const select = (await screen.findByLabelText(
       "用哪个 GitHub 账号",
     )) as HTMLSelectElement;
@@ -127,8 +139,8 @@ describe("Git 与 GitHub 设置（B62）", () => {
       status: 200,
       body: { ...config, hasToken: false, connectionId: undefined },
     }));
-    renderTab();
-    await screen.findByText("先在上面添加一个 GitHub 账号。");
+    renderManage();
+    await screen.findByText("先在设置 → Git 里添加一个 GitHub 账号。");
   });
 
   it("falls back to typing repositories when the list is not live", async () => {
@@ -138,7 +150,7 @@ describe("Git 与 GitHub 设置（B62）", () => {
       status: 501,
       body: { code: "not_live", message: "not live" },
     }));
-    renderTab();
+    renderManage();
     const box = (await screen.findByLabelText(
       "关注的仓库",
     )) as HTMLTextAreaElement;
@@ -168,7 +180,7 @@ describe("Git 与 GitHub 设置（B62）", () => {
         body: { ...config, repos: (body as { repos: string[] }).repos },
       };
     });
-    renderTab();
+    renderManage();
 
     // 已选的不再出现在下拉里。
     await screen.findByRole("button", { name: "移除 j0x3n/x-console" });
