@@ -17,9 +17,9 @@
 - 往看板写评论：用 `~/.claude.json` 里 xconsole 的 MCP 地址和请求头，在同一个 Python 进程里调 `projects_comment`。不要把中文放进命令行参数再开子进程，Windows 上读回来会看着像乱码。
 - 部署后先拿一个不会部署线上的工作流试运行，确认令牌权限不够时的提示。
 
-### 已提交到本地 develop、没推送
+### 2026-10-19 已部署
 
-- B249（看板 XC-60）切换模块时保留正在做的事：终端切走时问要不要留，顶栏“后台”按钮，`useDraft`、`useKeptState`。后端偏好字段 Codex 写（运行记录 `~/.claude/codex-runs/20261019-010638/`），Claude 审查；前端 Claude 写。检查记录见 [qa/B249-keep-state.md](qa/B249-keep-state.md)。
+- ccd01c8e B249（看板 XC-60，带部署标记，全部检查和端到端通过）切换模块时保留正在做的事：终端切走时问要不要留，顶栏“后台”按钮，`useDraft`、`useKeptState`。后端偏好字段 Codex 写（运行记录 `~/.claude/codex-runs/20261019-010638/`），Claude 审查；前端 Claude 写。检查记录见 [qa/B249-keep-state.md](qa/B249-keep-state.md)。
   - 还没做：看板 XC-60 写评论、挪到“待审核”；真实机器上试终端留在后台（检查记录“没验证的”一节）。
   - 关键文件：`web/src/features/servers/terminal/`（`store.ts` 后台列表，`sessions.ts` xterm 和连接，`TerminalDock.tsx` 隐藏容器），`features/servers/BackgroundButton.tsx`，`components/TerminalTab.tsx`，`web/src/hooks/useDraft.ts`。
 
