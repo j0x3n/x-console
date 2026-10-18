@@ -169,9 +169,12 @@ interface PendingImage {
 function CardInput({
   onSubmit,
   onClose,
+  count,
 }: {
   onSubmit: (title: string, description?: string) => Promise<unknown>;
   onClose: () => void;
+  /** 列表里的卡片数。加了新卡片后输入框往下挪，要跟着滚到能看见 */
+  count: number;
 }) {
   const t = useT();
   const [text, setText] = useState("");
@@ -181,6 +184,10 @@ function CardInput({
   const root = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => ref.current?.focus(), []);
+  // 输入框在卡片列表最后（XC-63），打开时和加完一张后都滚到能看见
+  useEffect(() => {
+    root.current?.scrollIntoView?.({ block: "nearest" });
+  }, [count]);
   const imagesRef = useRef(images);
   imagesRef.current = images;
   useEffect(
@@ -731,23 +738,25 @@ export default function ListBoard({
                 ];
               })}
               {line(others.length)}
-            </div>
-            {!readOnly &&
-              (adding === list.id ? (
+              {/* 输入框跟在最后一张卡片后面，和卡片一起滚，不压在列底部（XC-63） */}
+              {!readOnly && adding === list.id && (
                 <CardInput
+                  count={cards.length}
                   onSubmit={(title, description) =>
                     actions.quickAdd(list.id, title, description)
                   }
                   onClose={() => setAdding(null)}
                 />
-              ) : (
-                <button
-                  className="projects-add-card"
-                  onClick={() => setAdding(list.id)}
-                >
-                  <Plus size={14} /> {t("Add card")}
-                </button>
-              ))}
+              )}
+            </div>
+            {!readOnly && adding !== list.id && (
+              <button
+                className="projects-add-card"
+                onClick={() => setAdding(list.id)}
+              >
+                <Plus size={14} /> {t("Add card")}
+              </button>
+            )}
           </section>
         );
       })}
