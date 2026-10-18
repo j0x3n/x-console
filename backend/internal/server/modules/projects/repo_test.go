@@ -47,6 +47,12 @@ func TestBoardRepoSync(t *testing.T) {
 					_ = json.NewEncoder(w).Encode(map[string]any{"full_name": "team/app", "html_url": "https://git.example/team/app", "clone_url": "https://git.example/team/app.git", "default_branch": "main"})
 				case path == "/repos/team/app/issues" && r.Method == "GET":
 					pages++
+					if q := r.URL.Query(); kind == "github" && (q.Has("type") || q.Has("limit")) {
+						// GitHub reads type as the issue type and rejects "issues".
+						w.WriteHeader(422)
+						_, _ = w.Write([]byte(`{"message":"Validation Failed"}`))
+						return
+					}
 					rows := []map[string]any{}
 					if r.URL.Query().Get("page") == "1" {
 						rows = append(rows, map[string]any{"number": 1, "title": title, "body": "正文", "state": state, "html_url": "https://git.example/team/app/issues/1", "labels": []map[string]any{{"name": label}}})

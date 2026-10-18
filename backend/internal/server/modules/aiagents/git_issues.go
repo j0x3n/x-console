@@ -100,7 +100,12 @@ func (m *Module) Issues(ctx context.Context, id int64, name string) ([]contracts
 	out := []contracts.GitIssue{}
 	for page := 1; ; page++ {
 		var rows []gitIssueJSON
-		query := fmt.Sprintf("?state=all&per_page=100&limit=100&page=%d&type=issues", page)
+		// GitHub reads type as the issue type and answers 422 for "issues";
+		// only Forgejo needs it (and limit) to leave pull requests out.
+		query := fmt.Sprintf("?state=all&per_page=100&page=%d", page)
+		if c.Kind == kindForgejo {
+			query += "&limit=100&type=issues"
+		}
 		if err := g.do(ctx, http.MethodGet, path+"/issues"+query, nil, &rows); err != nil {
 			return nil, gitFailure(err)
 		}
