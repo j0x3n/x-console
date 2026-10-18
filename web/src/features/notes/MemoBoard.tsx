@@ -40,6 +40,7 @@ import PageActions from "../../components/layout/PageActions";
 import QuoteButton from "./QuoteDialog";
 import MemoEditor from "./MemoEditor";
 import { QUOTE_TAG } from "../overview/quote";
+import { useDraft } from "../../hooks/useDraft";
 
 /**
  * 便签瀑布流（B73），和 Google Keep 一样。顶部“记个便签…”就地展开写，
@@ -161,9 +162,11 @@ export default function MemoBoard({
 function MemoComposer({ tag, hidden }: { tag: string; hidden: boolean }) {
   const t = useT();
   const create = useCreateNote();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  // B249：写了一半的便签切走再回来还在，回来时直接展开。隐藏空间的分开记
+  const space = hidden ? "hidden" : "normal";
+  const [title, setTitle, clearTitle] = useDraft(`notes.memo.${space}.title`);
+  const [body, setBody, clearBody] = useDraft(`notes.memo.${space}.body`);
+  const [open, setOpen] = useState(() => !!(title || body));
   const [color, setColor] = useState<NoteColor>("");
   const [colors, setColors] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -188,8 +191,8 @@ function MemoComposer({ tag, hidden }: { tag: string; hidden: boolean }) {
       },
       {
         onSuccess: () => {
-          setTitle("");
-          setBody("");
+          clearTitle();
+          clearBody();
           setColor("");
           setOpen(false);
         },

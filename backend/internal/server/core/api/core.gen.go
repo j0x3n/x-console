@@ -183,6 +183,27 @@ func (e PreferencesQuoteMode) Valid() bool {
 	}
 }
 
+// Defines values for PreferencesTerminalLeave.
+const (
+	Ask   PreferencesTerminalLeave = "ask"
+	Close PreferencesTerminalLeave = "close"
+	Keep  PreferencesTerminalLeave = "keep"
+)
+
+// Valid indicates whether the value is a known member of the PreferencesTerminalLeave enum.
+func (e PreferencesTerminalLeave) Valid() bool {
+	switch e {
+	case Ask:
+		return true
+	case Close:
+		return true
+	case Keep:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DownloadAgentParamsOs.
 const (
 	Linux   DownloadAgentParamsOs = "linux"
@@ -340,6 +361,9 @@ type Preferences struct {
 	// QuoteMode B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
 	QuoteMode *PreferencesQuoteMode `json:"quoteMode,omitempty"`
 
+	// TerminalLeave B249。离开服务器页、电脑页时连着的终端怎么处理。ask 每次问（默认）；keep 留在后台；close 断开
+	TerminalLeave *PreferencesTerminalLeave `json:"terminalLeave,omitempty"`
+
 	// UpdatedAt 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
@@ -355,6 +379,9 @@ type PreferencesNightMode string
 
 // PreferencesQuoteMode B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
 type PreferencesQuoteMode string
+
+// PreferencesTerminalLeave B249。离开服务器页、电脑页时连着的终端怎么处理。ask 每次问（默认）；keep 留在后台；close 断开
+type PreferencesTerminalLeave string
 
 // TotpCode defines model for TotpCode.
 type TotpCode struct {

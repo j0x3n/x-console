@@ -23,6 +23,7 @@ import {
 import { runEntries, runStatusLabel, runTone, type RunEntry } from "./logic";
 import "./i18n";
 import "./aiagents.css";
+import { useKeptState } from "../../hooks/useDraft";
 
 /**
  * B86：Agent 的执行日志。Agent 详情页按 Agent 看，卡片详情按卡片看。
@@ -58,7 +59,9 @@ export default function AgentRunLog({
       }),
     [runs.data, tasks.data, agentId, issueKey],
   );
-  const [picked, setPicked] = useState<string | undefined>(
+  // B249：展开的那一条切走再回来还在
+  const [picked, setPicked] = useKeptState<string | undefined>(
+    `aiagents.runlog.${issueKey ?? agentId ?? ""}.${runId ?? ""}`,
     runId ? `r${runId}` : undefined,
   );
   const current =

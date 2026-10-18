@@ -603,6 +603,10 @@ components:
           items: { type: string, maxLength: 64, pattern: "^/[a-z0-9/-]*$" }
           maxItems: 40
           description: B179。左栏固定的入口地址。不传时用前端默认值
+        terminalLeave:
+          type: string
+          enum: [ask, keep, close]
+          description: B249。离开服务器页、电脑页时连着的终端怎么处理。ask 每次问（默认）；keep 留在后台；close 断开
         updatedAt:
           type: string
           format: date-time

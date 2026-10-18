@@ -555,6 +555,11 @@ export interface components {
             /** @description B179。左栏固定的入口地址。不传时用前端默认值 */
             navPins?: string[];
             /**
+             * @description B249。离开服务器页、电脑页时连着的终端怎么处理。ask 每次问（默认）；keep 留在后台；close 断开
+             * @enum {string}
+             */
+            terminalLeave?: "ask" | "keep" | "close";
+            /**
              * Format: date-time
              * @description 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来
              */

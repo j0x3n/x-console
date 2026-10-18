@@ -41,6 +41,7 @@ import type { HostDetail } from "../api";
 import "../../assistant/assistant.css";
 import { useHostDraftMode } from "../agentDraft";
 import "../../assistant/i18n";
+import { useDraft } from "../../../hooks/useDraft";
 
 const PERMISSIONS = HOST_PERMISSIONS;
 
@@ -94,7 +95,8 @@ function AgentView({
   const setDraftModeFor = useHostDraftMode((s) => s.set);
   const setDraftMode = (mode: HostAgentPermission) =>
     setDraftModeFor(host.id, mode);
-  const [text, setText] = useState("");
+  // B249：写了一半的话切走再回来还在
+  const [text, setText] = useDraft(`servers.agent.${host.id}`);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);

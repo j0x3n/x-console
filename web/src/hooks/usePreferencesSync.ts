@@ -26,7 +26,7 @@ const fromNight: Record<Preferences["nightMode"], ThemeMode> = {
 let applying = false;
 
 /*
- * 夜间模式、主题色、语言、称呼（B88）、每日一句（B89）、左栏固定的入口（B179）存在服务端（B22），换一台浏览器登录也一样。
+ * 夜间模式、主题色、语言、称呼（B88）、每日一句（B89）、左栏固定的入口（B179）、终端的离开方式（B249）存在服务端（B22），换一台浏览器登录也一样。
  * 本地 localStorage 也存一份，首屏不闪。接口还没上线时只用本地的。
  * 在登录后的布局里调用一次。
  */
@@ -55,6 +55,8 @@ export function usePreferencesSync() {
     if (p.quoteMode !== undefined) store.setQuoteMode(p.quoteMode);
     // B179：没存过时保留本地的（本地也没有就用默认值）
     if (p.navPins !== undefined) store.setNavPins(p.navPins);
+    // B249：没存过时保留本地的
+    if (p.terminalLeave !== undefined) store.setTerminalLeave(p.terminalLeave);
     applying = false;
   }, [remote.data]);
   const live = remote.isSuccess;
@@ -68,7 +70,8 @@ export function usePreferencesSync() {
         s.language === prev.language &&
         s.nickname === prev.nickname &&
         s.quoteMode === prev.quoteMode &&
-        s.navPins === prev.navPins
+        s.navPins === prev.navPins &&
+        s.terminalLeave === prev.terminalLeave
       )
         return;
       save(s);
@@ -79,7 +82,13 @@ export function usePreferencesSync() {
 function save(
   s: Pick<
     PreferencesState,
-    "themeMode" | "accent" | "language" | "nickname" | "quoteMode" | "navPins"
+    | "themeMode"
+    | "accent"
+    | "language"
+    | "nickname"
+    | "quoteMode"
+    | "navPins"
+    | "terminalLeave"
   >,
 ) {
   coreApi
@@ -90,6 +99,7 @@ function save(
         language: s.language,
         nickname: s.nickname,
         quoteMode: s.quoteMode,
+        terminalLeave: s.terminalLeave,
         ...(s.navPins ? { navPins: s.navPins } : {}),
       },
     })

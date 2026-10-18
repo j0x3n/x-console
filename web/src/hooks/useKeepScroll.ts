@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from "react";
+import { loadMap, persistMap } from "./sessionMap";
 
 /*
  * 切换页面后保留位置（B80）。不把整页留在内存里，只记两样：
@@ -14,26 +15,8 @@ const RESTORE_WAIT_MS = 2000;
 /** 最多记这么多个位置，多了丢掉最早的。 */
 const MAX_ENTRIES = 300;
 
-function load(key: string): Map<string, unknown> {
-  try {
-    const raw = sessionStorage.getItem(key);
-    const obj = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    return new Map(Object.entries(obj));
-  } catch {
-    return new Map();
-  }
-}
-
-function persist(key: string, map: Map<string, unknown>) {
-  try {
-    sessionStorage.setItem(key, JSON.stringify(Object.fromEntries(map)));
-  } catch {
-    /* 存不了就只在内存里 */
-  }
-}
-
-const scrolls = load(SCROLL_KEY) as Map<string, number>;
-const paths = load(PATH_KEY) as Map<string, string>;
+const scrolls = loadMap(SCROLL_KEY) as Map<string, number>;
+const paths = loadMap(PATH_KEY) as Map<string, string>;
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function readScroll(key: string): number | undefined {
@@ -50,7 +33,7 @@ export function saveScroll(key: string, top: number) {
     scrolls.delete(oldest);
   }
   clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => persist(SCROLL_KEY, scrolls), 300);
+  persistTimer = setTimeout(() => persistMap(SCROLL_KEY, scrolls), 300);
 }
 
 /** 地址属于哪个模块：第一段路径，比如 /notes/12 → /notes。首页和设置不记。 */
@@ -65,7 +48,7 @@ export function rememberPath(pathname: string, search: string) {
   const root = moduleRoot(pathname);
   if (!root) return;
   paths.set(root, pathname + search);
-  persist(PATH_KEY, paths);
+  persistMap(PATH_KEY, paths);
 }
 
 /**

@@ -1800,6 +1800,18 @@ try {
     await page.waitForURL(/\/projects\/EET\/\d+$/);
     const issueKey = `EET-${page.url().split("/").at(-1)}`;
     assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
+    setStage("B249 写了一半的评论切走再回来还在");
+    const commentBox = page.getByRole("textbox", { name: "评论" });
+    await commentBox.fill("写了一半的评论");
+    await page
+      .locator(".sidebar .nav-rail")
+      .getByRole("link", { name: "笔记" })
+      .click();
+    await page.waitForURL(/\/notes/);
+    await page.goBack();
+    await page.waitForURL(/\/projects\/EET\/\d+$/);
+    assert.equal(await commentBox.inputValue(), "写了一半的评论");
+    await commentBox.fill("");
     setStage("B36 分类和截止时间");
     const categoryResponse = await page
       .context()

@@ -11,6 +11,7 @@ import { ChevronsLeftRight, ImagePlus, Plus, X } from "lucide-react";
 import { errorMessage } from "../../../api/client";
 import { useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
+import { useDraft, useKeptState } from "../../../hooks/useDraft";
 import {
   attachmentMarkdown,
   IMAGE_TYPES,
@@ -170,14 +171,17 @@ function CardInput({
   onSubmit,
   onClose,
   count,
+  draftKey,
 }: {
   onSubmit: (title: string, description?: string) => Promise<unknown>;
   onClose: () => void;
   /** 列表里的卡片数。加了新卡片后输入框往下挪，要跟着滚到能看见 */
   count: number;
+  /** B249：写了一半的标题按这个 key 记住，切走再回来还在 */
+  draftKey: string;
 }) {
   const t = useT();
-  const [text, setText] = useState("");
+  const [text, setText, clearText] = useDraft(draftKey);
   const [busy, setBusy] = useState(false);
   const [images, setImages] = useState<PendingImage[]>([]);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -260,7 +264,7 @@ function CardInput({
         value,
         done.length ? done.map((i) => i.markdown).join("\n\n") : undefined,
       );
-      setText("");
+      clearText();
       images.forEach((i) => URL.revokeObjectURL(i.preview));
       setImages([]);
       return true;
@@ -507,7 +511,11 @@ export default function ListBoard({
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragHeight, setDragHeight] = useState(40);
   const [drop, setDrop] = useState<ListDropTarget | null>(null);
-  const [adding, setAdding] = useState<number | null>(null);
+  // B249：切走再回来，打开着的“添加卡片”输入框还开着
+  const [adding, setAdding] = useKeptState<number | null>(
+    `projects.adding.${board.id}`,
+    null,
+  );
   const [addingList, setAddingList] = useState(false);
   const scroll = useBoardScroll();
   // B85：右键菜单和从菜单打开的“分配给 Agent”
@@ -742,6 +750,7 @@ export default function ListBoard({
               {!readOnly && adding === list.id && (
                 <CardInput
                   count={cards.length}
+                  draftKey={`projects.newCard.${list.id}`}
                   onSubmit={(title, description) =>
                     actions.quickAdd(list.id, title, description)
                   }

@@ -60,7 +60,16 @@ export interface PreferencesState {
   /** B179：左栏固定的入口地址。null 时用 app/nav.ts 的默认值 */
   navPins: string[] | null;
   setNavPins: (pins: string[] | null) => void;
+  /** B249：离开服务器页、电脑页时连着的终端怎么处理 */
+  terminalLeave: TerminalLeave;
+  setTerminalLeave: (mode: TerminalLeave) => void;
 }
+
+export type TerminalLeave = "ask" | "keep" | "close";
+const terminalLeaves: TerminalLeave[] = ["ask", "keep", "close"];
+const savedLeave = readPreference(
+  "x-console-terminal-leave",
+) as TerminalLeave | null;
 
 function readNavPins(): string[] | null {
   try {
@@ -114,5 +123,11 @@ export const usePreferencesStore = create<PreferencesState>()((set) => ({
   setNavPins: (navPins) => {
     savePreference("x-console-nav-pins", JSON.stringify(navPins));
     set({ navPins });
+  },
+  terminalLeave:
+    savedLeave && terminalLeaves.includes(savedLeave) ? savedLeave : "ask",
+  setTerminalLeave: (terminalLeave) => {
+    savePreference("x-console-terminal-leave", terminalLeave);
+    set({ terminalLeave });
   },
 }));

@@ -1,43 +1,58 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { useBlocker, useLocation } from "react-router";
 import "@xterm/xterm/css/xterm.css";
 import { Plug, RotateCw } from "lucide-react";
-import { errorMessage, wsUrl } from "../../../api/client";
+import { errorMessage } from "../../../api/client";
 import { withElevation } from "../../../auth/elevation";
 import { useT } from "../../../contexts/LanguageContext";
+import { toast } from "../../../hooks/useToast";
+import { usePreferencesStore } from "../../../stores/preferences-store";
 import { ensureElevated, type HostDetail } from "../api";
+import {
+  fitSession,
+  leaveSession,
+  openSession,
+  sendInput,
+  showSession,
+} from "../terminal/sessions";
+import { disconnect, useTerminals, type TermInfo } from "../terminal/store";
+import LeaveDialog, { evictedMessage } from "../terminal/LeaveDialog";
 import TerminalScripts from "./TerminalScripts";
 
-type Status = "idle" | "connecting" | "open" | "closed";
-
-function cssVar(name: string, fallback: string) {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  return v || fallback;
+/** 回到这台机器终端页的地址。电脑页靠 ?host= 选机器。 */
+function terminalPath(pathname: string, hostId: string) {
+  const id = encodeURIComponent(hostId);
+  return pathname.startsWith("/pc")
+    ? `/pc/terminal?host=${id}`
+    : `/servers/${id}/terminal`;
 }
 
 /**
  * xterm.js 终端。二进制帧是终端数据，文本帧是窗口大小。
  * 打开前先确认 5 分钟内验证过，否则弹出验证框。
+ * B249：连接放在 terminal/sessions 里，离开页面时可以留在后台，回来接着用。
  */
 export default function TerminalTab({ host }: { host: HostDetail }) {
   const t = useT();
-  const el = useRef<HTMLDivElement>(null);
-  const term = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const socket = useRef<WebSocket | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
+  const location = useLocation();
+  const slot = useRef<HTMLDivElement>(null);
+  const info = useTerminals((s) => s.sessions[host.id]) as TermInfo | undefined;
+  const leave = usePreferencesStore((s) => s.terminalLeave);
+  const setLeave = usePreferencesStore((s) => s.setTerminalLeave);
+  const [ended, setEnded] = useState(false);
   const [error, setError] = useState("");
-
-  const disconnect = useCallback(() => {
-    socket.current?.close();
-    socket.current = null;
-    term.current?.dispose();
-    term.current = null;
-    fitRef.current = null;
-  }, []);
+  const status = info?.status ?? (ended ? "closed" : "idle");
+  const path = terminalPath(location.pathname, host.id);
+  const pathRef = useRef(path);
+  pathRef.current = path;
+  // 离开时怎么处理：弹窗里选的，没选过就按偏好
+  const decision = useRef<"keep" | "close" | null>(null);
 
   const connect = useCallback(async () => {
     setError("");
@@ -47,94 +62,59 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
       setError(errorMessage(e));
       return;
     }
-    disconnect();
-    if (!el.current) return;
-    setStatus("connecting");
-    const xterm = new Terminal({
-      cursorBlink: true,
-      fontFamily: cssVar("--xc-mono", "monospace"),
-      fontSize: 13,
-      scrollback: 5000,
-      theme: {
-        background: cssVar("--servers-term-bg", "#0a0a0b"),
-        foreground: cssVar("--servers-term-fg", "#ededf0"),
-        cursor: cssVar("--xc-accent", "#cc7752"),
-        selectionBackground: "#5c5c6480",
-      },
+    if (!slot.current) return;
+    openSession({
+      hostId: host.id,
+      hostName: host.name,
+      path: pathRef.current,
+      slot: slot.current,
+      closedLine: (reason) =>
+        `\r\n\x1b[90m[${t("Connection closed")}${reason ? `: ${reason}` : ""}]\x1b[0m\r\n`,
     });
-    const fit = new FitAddon();
-    xterm.loadAddon(fit);
-    xterm.open(el.current);
-    fit.fit();
-    term.current = xterm;
-    fitRef.current = fit;
+  }, [host.id, host.name, t]);
 
-    const ws = new WebSocket(
-      wsUrl(
-        `/hosts/${encodeURIComponent(host.id)}/terminal?cols=${xterm.cols}&rows=${xterm.rows}`,
-      ),
-    );
-    ws.binaryType = "arraybuffer";
-    socket.current = ws;
-    const encoder = new TextEncoder();
-    ws.onopen = () => {
-      setStatus("open");
-      xterm.focus();
-    };
-    ws.onmessage = (event) => {
-      if (event.data instanceof ArrayBuffer)
-        xterm.write(new Uint8Array(event.data));
-    };
-    ws.onclose = (event) => {
-      if (socket.current !== ws) return;
-      setStatus("closed");
-      const reason =
-        event.reason && event.reason !== "terminal closed"
-          ? `: ${event.reason}`
-          : "";
-      xterm.write(
-        `\r\n\x1b[90m[${t("Connection closed")}${reason}]\x1b[0m\r\n`,
+  const send = useCallback(
+    (text: string) => sendInput(host.id, text),
+    [host.id],
+  );
+
+  // 有留在后台的会话就接着用。离开时按选择留在后台或断开。
+  useLayoutEffect(() => {
+    const id = host.id;
+    if (slot.current) showSession(id, slot.current);
+    return () => {
+      const pref = usePreferencesStore.getState().terminalLeave;
+      const choice = decision.current ?? (pref === "close" ? "close" : "keep");
+      decision.current = null;
+      leaveSession(id, choice, pathRef.current, (evicted) =>
+        toast(evictedMessage(t, evicted.hostName)),
       );
     };
-    xterm.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(encoder.encode(data));
-    });
-    xterm.onBinary((data) => {
-      if (ws.readyState !== WebSocket.OPEN) return;
-      const bytes = Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff);
-      ws.send(bytes);
-    });
-    xterm.onResize(({ cols, rows }) => {
-      if (ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ type: "resize", cols, rows }));
-    });
-  }, [host.id, disconnect, t]);
-
-  // 脚本面板把一段输入送进终端，和键盘输入走同一条路。
-  const send = useCallback((text: string) => {
-    const ws = socket.current;
-    if (ws?.readyState !== WebSocket.OPEN) return;
-    ws.send(new TextEncoder().encode(text));
-    term.current?.focus();
-  }, []);
+    // t 只用来写提示，换语言不用重新挂
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [host.id]);
 
   // 跟着容器大小调整终端。
   useEffect(() => {
-    const node = el.current;
+    const node = slot.current;
     if (!node) return;
-    const ro = new ResizeObserver(() => {
-      try {
-        fitRef.current?.fit();
-      } catch {
-        /* 容器还没显示出来 */
-      }
-    });
+    const ro = new ResizeObserver(() => fitSession(host.id));
     ro.observe(node);
     return () => ro.disconnect();
-  }, []);
+  }, [host.id]);
 
-  // 离开页面时关闭连接，代理端的 shell 随之退出。
-  useEffect(() => disconnect, [disconnect]);
+  // 连着的时候离开先问（偏好是“每次问”时）
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      status === "open" &&
+      leave === "ask" &&
+      currentLocation.pathname !== nextLocation.pathname,
+  );
+  const choose = (choice: "keep" | "close", remember: boolean) => {
+    decision.current = choice;
+    if (remember) setLeave(choice);
+    blocker.proceed?.();
+  };
 
   return (
     <div className="xc-card servers-terminal-card">
@@ -158,8 +138,8 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
             <button
               className="xc-btn small"
               onClick={() => {
-                disconnect();
-                setStatus("closed");
+                disconnect(host.id);
+                setEnded(true);
               }}
             >
               {t("Disconnect")}
@@ -192,7 +172,7 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
       <div className="servers-terminal-body">
         <div
           className={`servers-terminal${status === "idle" ? " idle" : ""}`}
-          ref={el}
+          ref={slot}
         />
         <TerminalScripts
           host={host}
@@ -200,6 +180,11 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
           send={send}
         />
       </div>
+      <LeaveDialog
+        open={blocker.state === "blocked"}
+        onChoose={choose}
+        onCancel={() => blocker.reset?.()}
+      />
     </div>
   );
 }

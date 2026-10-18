@@ -44,6 +44,7 @@ import AiMark from "./AiMark";
 import ChatControls from "./ChatControls";
 import Picker from "./Picker";
 import Timeline from "./Timeline";
+import { useDraft } from "../../../hooks/useDraft";
 
 function pageContext(pathname: string): PageContext {
   const h1 = document.querySelector("#main .xc-page-title h1, #main h1");
@@ -98,7 +99,8 @@ export default function ConversationView({
           effort: "",
         });
 
-  const [text, setText] = useState("");
+  // B249：写了一半的话关掉面板再打开还在
+  const [text, setText] = useDraft(`ai.chat.${conversationId ?? "new"}`);
   const [attachments, setAttachments] = useState<AiAttachment[]>([]);
   const [uploading, setUploading] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);

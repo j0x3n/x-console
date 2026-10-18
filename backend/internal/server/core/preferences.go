@@ -85,6 +85,9 @@ func (h *Handlers) GetPreferences(w http.ResponseWriter, r *http.Request) {
 		if saved.NavPins != nil && validNavPins(*saved.NavPins) {
 			out.NavPins = saved.NavPins
 		}
+		if saved.TerminalLeave != nil && saved.TerminalLeave.Valid() {
+			out.TerminalLeave = saved.TerminalLeave
+		}
 		out.UpdatedAt = saved.UpdatedAt
 	}
 	httpx.JSON(w, http.StatusOK, out)
@@ -113,6 +116,9 @@ func (h *Handlers) PutPreferences(w http.ResponseWriter, r *http.Request) {
 		return
 	case body.NavPins != nil && !validNavPins(*body.NavPins):
 		httpx.Fail(w, r, httpx.Invalid("左栏固定的入口不对"))
+		return
+	case body.TerminalLeave != nil && !body.TerminalLeave.Valid():
+		httpx.Fail(w, r, httpx.Invalid("终端的离开方式不对"))
 		return
 	}
 	if body.Nickname != nil {

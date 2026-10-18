@@ -78,6 +78,7 @@ import {
 } from "./logic";
 import { useShortcuts } from "./useShortcuts";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
+import { useDraft, useKeptState } from "../../hooks/useDraft";
 
 export default function IssuePage() {
   const navigate = useNavigate();
@@ -409,7 +410,10 @@ function DrawerFeed({ issueKey }: { issueKey: string }) {
   const t = useT();
   const comments = useComments(issueKey);
   const activity = useIssueActivity(issueKey);
-  const [tab, setTab] = useState<"comments" | "activity">("comments");
+  const [tab, setTab] = useKeptState<"comments" | "activity">(
+    `projects.issueTab.${issueKey}`,
+    "comments",
+  );
   return (
     <section className="projects-drawer-feed">
       <div className="projects-drawer-tabs" role="tablist">
@@ -1149,10 +1153,11 @@ function Comments({ issueKey, bare }: { issueKey: string; bare?: boolean }) {
   const comments = useComments(issueKey);
   const add = useAddComment(issueKey);
   const remove = useDeleteComment(issueKey);
-  const [body, setBody] = useState("");
+  // B249：写了一半的评论切走再回来还在
+  const [body, setBody, clearBody] = useDraft(`projects.comment.${issueKey}`);
   const submit = () => {
     if (!body.trim()) return;
-    add.mutate(body, { onSuccess: () => setBody("") });
+    add.mutate(body, { onSuccess: clearBody });
   };
   const list = (
     <>

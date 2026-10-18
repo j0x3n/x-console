@@ -395,7 +395,8 @@ html[data-theme="light"] {
   background: var(--servers-term-bg);
   overflow: hidden;
 }
-.servers-terminal .xterm {
+.servers-terminal .xterm,
+.servers-terminal-screen {
   height: 100%;
 }
 

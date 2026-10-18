@@ -25,6 +25,7 @@ import AddressList from "./AddressList";
 import { relativeTime } from "../../../lib/time";
 import { presenceText, presenceTone } from "../../habits/presence";
 import UsageBar from "./UsageBar";
+import { useKeptState } from "../../../hooks/useDraft";
 
 const S1 = "var(--servers-series-1)";
 const S2 = "var(--servers-series-2)";
@@ -53,10 +54,17 @@ function useLivePoints(hostId: string, enabled: boolean) {
 export default function OverviewTab({ host }: { host: HostDetail }) {
   const t = useT();
   const language = useLanguage();
-  const [range, setRange] = useState<MetricsRange>("1h");
+  // B249：切走再回来，选的时间范围和展开的磁盘列表还在
+  const [range, setRange] = useKeptState<MetricsRange>(
+    `servers.range.${host.id}`,
+    "1h",
+  );
   // B187：刷新间隔在页头设置，这里只看是不是 1 秒（画实时曲线）
   const refresh = useHostRefresh((s) => s.ms);
-  const [disksOpen, setDisksOpen] = useState(false);
+  const [disksOpen, setDisksOpen] = useKeptState(
+    `servers.disks.${host.id}`,
+    false,
+  );
   const live = refresh === 1000;
   const livePoints = useLivePoints(host.id, live);
   const metrics = useHostMetrics(host.id, range);

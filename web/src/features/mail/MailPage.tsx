@@ -47,6 +47,7 @@ import {
   triageLabel,
 } from "./triage";
 import { useKeepScroll } from "../../hooks/useKeepScroll";
+import { useDraft } from "../../hooks/useDraft";
 
 /*
  * 邮件（B53）：左边收件箱，右边阅读，和笔记一样铺满右侧（B218）。窄屏时一次只显示一栏。
@@ -62,8 +63,9 @@ export default function MailPage() {
   const sync = useSyncMailAccount();
   const batch = useBatchMail();
   const readAll = useMarkAllMailRead();
-  const [q, setQ] = useState("");
-  const [query, setQuery] = useState("");
+  // B249：搜索框里的字切走再回来还在
+  const [q, setQ] = useDraft("mail.search");
+  const [query, setQuery] = useState(() => q.trim());
   useEffect(() => {
     const id = setTimeout(() => setQuery(q.trim()), 300);
     return () => clearTimeout(id);

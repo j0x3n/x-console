@@ -16,6 +16,7 @@ import {
   Router,
   ScrollText,
   Sparkles,
+  SquareTerminal,
   Sunrise,
   UserRound,
   Wrench,
@@ -42,6 +43,7 @@ import XSettingsTab from "../readlater/XSettingsTab";
 import FeedsSettingsTab from "../feeds/FeedsSettingsTab";
 import MusicSettingsTab from "../music/MusicSettingsTab";
 import MeSettingsTab from "../me/MeSettingsTab";
+import TerminalSettingsTab from "../servers/terminal/TerminalSettingsTab";
 
 export interface SettingsTab {
   id: string; // 地址里的 ?settings=<id>，旧地址 /settings/<id> 也能用
@@ -121,6 +123,13 @@ export const settingsTabs: SettingsTab[] = [
     icon: Sunrise,
     group: "general",
     component: BriefSettingsTab,
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    icon: SquareTerminal,
+    group: "general",
+    component: TerminalSettingsTab,
   },
   {
     id: "security",

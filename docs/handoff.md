@@ -17,14 +17,14 @@
 - 往看板写评论：用 `~/.claude.json` 里 xconsole 的 MCP 地址和请求头，在同一个 Python 进程里调 `projects_comment`。不要把中文放进命令行参数再开子进程，Windows 上读回来会看着像乱码。
 - 部署后先拿一个不会部署线上的工作流试运行，确认令牌权限不够时的提示。
 
+### 已提交到本地 develop、没推送
+
+- B249（看板 XC-60）切换模块时保留正在做的事：终端切走时问要不要留，顶栏“后台”按钮，`useDraft`、`useKeptState`。后端偏好字段 Codex 写（运行记录 `~/.claude/codex-runs/20261019-010638/`），Claude 审查；前端 Claude 写。检查记录见 [qa/B249-keep-state.md](qa/B249-keep-state.md)。
+  - 还没做：看板 XC-60 写评论、挪到“待审核”；真实机器上试终端留在后台（检查记录“没验证的”一节）。
+  - 关键文件：`web/src/features/servers/terminal/`（`store.ts` 后台列表，`sessions.ts` xterm 和连接，`TerminalDock.tsx` 隐藏容器），`features/servers/BackgroundButton.tsx`，`components/TerminalTab.tsx`，`web/src/hooks/useDraft.ts`。
+
 ### 等用户定 / 下一步
 
-- B249（规格 [B249](specs/B249.md)，看板 XC-60）：2026-10-19 用户定了方案，规格已更新，下一个会话开工。
-  - 切走前先弹窗问要不要把终端留在后台，可以勾“以后都这样”。
-  - 顶栏右上角加“后台”按钮，显示后台终端和运行中的 Agent 任务的数量。点开列出每一条：点行跳回去，点 × 断开终端或取消任务。
-  - 最多留 4 个，30 分钟没看自动断开。
-  - 开工顺序：先让编码 AI 加偏好字段 `terminalLeave`（`api/modules/core.yaml`，基础代码），再由 Claude 写前端（`features/servers`，`TopbarActions.tsx`、`GlobalPanels.tsx` 只加行）。`useDraft`、`useKeptState` 也是前端。
-  - 下一步要看的文件：`web/src/features/servers/components/TerminalTab.tsx`、`web/src/app/TopbarActions.tsx`、`web/src/app/GlobalPanels.tsx`、`web/src/features/recipes/RecipeEditPage.tsx`（`useBlocker` 的写法）、`web/src/features/coding/api.ts`、`web/src/hooks/usePreferencesSync.ts`。
 - XC-57 左栏合并方案，下面是给用户的建议，还没和用户确认，也没写代码。用现有的 `navMerges`（`web/src/app/nav.ts`，B179）合并，地址都不变：
   - 工作：今日、项目、Agent（合并仓库）。
   - 笔记（笔记、稍后读、复习卡片、资讯）、问我的数据、邮件、日程（日程和专注、提醒事项、今日计划、收集箱）、音乐、云盘。
@@ -39,6 +39,9 @@
 - 本机 PATH 里没有 node，用 `/c/Users/xcc19/AppData/Roaming/fnm/node-versions/v22.23.3/installation`。Node 25 有 localStorage 问题，用 22。
 - 本机没装 B242 新加的依赖 `modern-screenshot`，`tsc` 会报这一条，和别的改动无关。跑前端检查前先 `npm ci`。
 - 8080 和 5173 端口被别的程序占着（xs-server、X Studio 的 vite），本地前端用 5174。
+- `backend/internal/server/core` 的 `TestInstallRejectsBadCodes` 在本机必失败，改动前就这样：测试往 SQLite 写的是本地时间（东八区），过期的配对码被当成没过期。CI 在 UTC 下能过。`check-quick.sh` 会停在这一步，前端那几步要手动跑。
+- Git Bash 里跑 `npm run shots -- --only /servers` 要加 `MSYS_NO_PATHCONV=1`，不然路径会被改写。
+- 浏览器面板的启动配置里 `bash` 指向 WSL，要写成 `C:/Program Files/Git/bin/bash.exe`。
 
 ## 接手时注意
 

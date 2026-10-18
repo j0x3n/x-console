@@ -12,13 +12,84 @@ import (
 )
 
 type prefs struct {
-	NightMode string    `json:"nightMode"`
-	Accent    string    `json:"accent"`
-	Language  string    `json:"language"`
-	UpdatedAt *string   `json:"updatedAt"`
-	Nickname  *string   `json:"nickname,omitempty"`
-	QuoteMode *string   `json:"quoteMode,omitempty"`
-	NavPins   *[]string `json:"navPins,omitempty"`
+	NightMode     string    `json:"nightMode"`
+	Accent        string    `json:"accent"`
+	Language      string    `json:"language"`
+	UpdatedAt     *string   `json:"updatedAt"`
+	Nickname      *string   `json:"nickname,omitempty"`
+	QuoteMode     *string   `json:"quoteMode,omitempty"`
+	NavPins       *[]string `json:"navPins,omitempty"`
+	TerminalLeave *string   `json:"terminalLeave,omitempty"`
+}
+
+func TestPreferencesTerminalLeave(t *testing.T) {
+	env := testutil.New(t)
+
+	var initial map[string]any
+	env.MustDo(http.MethodGet, "/me/preferences", nil, &initial)
+	if _, ok := initial["terminalLeave"]; ok {
+		t.Fatalf("defaults should omit terminalLeave: %+v", initial)
+	}
+
+	for _, mode := range []string{"ask", "keep", "close"} {
+		t.Run(mode, func(t *testing.T) {
+			body := prefs{NightMode: "on", Accent: "ocean", Language: "zh", TerminalLeave: &mode}
+			var saved, got prefs
+			env.MustDo(http.MethodPut, "/me/preferences", body, &saved)
+			env.MustDo(http.MethodGet, "/me/preferences", nil, &got)
+			if saved.TerminalLeave == nil || *saved.TerminalLeave != mode || got.TerminalLeave == nil || *got.TerminalLeave != mode {
+				t.Fatalf("terminalLeave %q: saved %+v, got %+v", mode, saved, got)
+			}
+		})
+	}
+
+	t.Run("omitted", func(t *testing.T) {
+		name, quote := "小明", "daily"
+		pins := []string{"/notes", "/projects"}
+		body := prefs{NightMode: "off", Accent: "teal", Language: "en", Nickname: &name, QuoteMode: &quote, NavPins: &pins}
+		var saved map[string]any
+		env.MustDo(http.MethodPut, "/me/preferences", body, &saved)
+		var got map[string]any
+		env.MustDo(http.MethodGet, "/me/preferences", nil, &got)
+		for _, result := range []map[string]any{saved, got} {
+			if _, ok := result["terminalLeave"]; ok {
+				t.Fatalf("omitted terminalLeave should stay absent: %+v", result)
+			}
+		}
+		var read prefs
+		env.MustDo(http.MethodGet, "/me/preferences", nil, &read)
+		if read.NightMode != body.NightMode || read.Accent != body.Accent || read.Language != body.Language || read.UpdatedAt == nil ||
+			read.Nickname == nil || *read.Nickname != name || read.QuoteMode == nil || *read.QuoteMode != quote ||
+			read.NavPins == nil || !slices.Equal(*read.NavPins, pins) {
+			t.Fatalf("other preferences changed: %+v", read)
+		}
+	})
+
+	for _, mode := range []string{"invalid", ""} {
+		t.Run("invalid "+mode, func(t *testing.T) {
+			body := prefs{NightMode: "on", Accent: "ocean", Language: "zh", TerminalLeave: &mode}
+			status, raw := env.Do(http.MethodPut, "/me/preferences", body, nil)
+			if status != http.StatusBadRequest {
+				t.Fatalf("bad terminalLeave: %d, %s", status, raw)
+			}
+			var failure struct{ Code, Message string }
+			if err := json.Unmarshal(raw, &failure); err != nil {
+				t.Fatal(err)
+			}
+			if failure.Code != "validation_failed" || failure.Message != "终端的离开方式不对" {
+				t.Fatalf("bad terminalLeave error: %+v", failure)
+			}
+
+			if err := env.App.Deps.Settings.Set(t.Context(), "ui.preferences", body); err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			env.MustDo(http.MethodGet, "/me/preferences", nil, &got)
+			if _, ok := got["terminalLeave"]; ok || got["accent"] != "ocean" {
+				t.Fatalf("invalid saved terminalLeave: %+v", got)
+			}
+		})
+	}
 }
 
 func TestPreferencesNavPins(t *testing.T) {
