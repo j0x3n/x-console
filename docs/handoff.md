@@ -13,12 +13,18 @@
 
 - 3a2fb76d `修复: XC-63 添加卡片的输入框跟在最后一张卡片后面`。2026-10-19 在本地看过 1360 和 390 宽的看板，输入框跟在最后一张卡片后面。
 - 7a6acef5 `B248`（看板 XC-59）：设置 → Git 只留账号和通知，“管理仓库”弹窗搬到仓库页，仓库页能运行工作流、重跑失败的任务。后端 Codex 写（运行记录 `~/.claude/codex-runs/20261018-234140/`），Claude 审查。检查记录见 [qa/B248-repo-actions.md](qa/B248-repo-actions.md)。
-- 还没做：在 X Console 看板给 XC-63 补一条评论（上一条猜错了，说的是描述编辑框），XC-59 写评论并挪到“待审核”。要用户同意再发。
+- 2026-10-19 已在 X Console 看板给 XC-63 补了更正评论，XC-59 写了评论并挪到“待审核”。各多发了一条重复评论（XC-63 的 16 号、XC-59 的 17 号），MCP 删不了，请用户在页面上删。
+- 往看板写评论：用 `~/.claude.json` 里 xconsole 的 MCP 地址和请求头，在同一个 Python 进程里调 `projects_comment`。不要把中文放进命令行参数再开子进程，Windows 上读回来会看着像乱码。
 - 部署后先拿一个不会部署线上的工作流试运行，确认令牌权限不够时的提示。
 
-### 等用户定
+### 等用户定 / 下一步
 
-- B249（规格 [B249](specs/B249.md)，看板 XC-60）：用户同意先做“保存状态”，不做多标签页。终端切走不断开最多留几个、多久自动断开（建议 4 个、30 分钟），要用户定了再做。
+- B249（规格 [B249](specs/B249.md)，看板 XC-60）：2026-10-19 用户定了方案，规格已更新，下一个会话开工。
+  - 切走前先弹窗问要不要把终端留在后台，可以勾“以后都这样”。
+  - 顶栏右上角加“后台”按钮，显示后台终端和运行中的 Agent 任务的数量。点开列出每一条：点行跳回去，点 × 断开终端或取消任务。
+  - 最多留 4 个，30 分钟没看自动断开。
+  - 开工顺序：先让编码 AI 加偏好字段 `terminalLeave`（`api/modules/core.yaml`，基础代码），再由 Claude 写前端（`features/servers`，`TopbarActions.tsx`、`GlobalPanels.tsx` 只加行）。`useDraft`、`useKeptState` 也是前端。
+  - 下一步要看的文件：`web/src/features/servers/components/TerminalTab.tsx`、`web/src/app/TopbarActions.tsx`、`web/src/app/GlobalPanels.tsx`、`web/src/features/recipes/RecipeEditPage.tsx`（`useBlocker` 的写法）、`web/src/features/coding/api.ts`、`web/src/hooks/usePreferencesSync.ts`。
 - XC-57 左栏合并方案，下面是给用户的建议，还没和用户确认，也没写代码。用现有的 `navMerges`（`web/src/app/nav.ts`，B179）合并，地址都不变：
   - 工作：今日、项目、Agent（合并仓库）。
   - 笔记（笔记、稍后读、复习卡片、资讯）、问我的数据、邮件、日程（日程和专注、提醒事项、今日计划、收集箱）、音乐、云盘。
