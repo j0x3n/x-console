@@ -395,6 +395,35 @@ describe("B46 boards", () => {
     );
   });
 
+  it("XC-61: clicking outside closes an empty input and saves a filled one", async () => {
+    renderAt("/projects/XC");
+    await screen.findByText("Issue 1");
+    const placeholder = "卡片标题，可以直接粘贴图片";
+    fireEvent.click(screen.getAllByText("添加卡片")[1]);
+    await screen.findByPlaceholderText(placeholder);
+    fireEvent.pointerDown(document.body);
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText(placeholder)).toBeNull(),
+    );
+    const posts = () =>
+      calls.filter((c) => c.method === "POST" && c.url.endsWith("/issues"));
+    const before = posts().length;
+    fireEvent.click(screen.getAllByText("添加卡片")[1]);
+    fireEvent.change(await screen.findByPlaceholderText(placeholder), {
+      target: { value: "点外面保存" },
+    });
+    fireEvent.pointerDown(document.body);
+    await waitFor(() =>
+      expect(posts().at(-1)).toMatchObject({
+        body: { title: "点外面保存", listId: 102 },
+      }),
+    );
+    expect(posts()).toHaveLength(before + 1);
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText(placeholder)).toBeNull(),
+    );
+  });
+
   it("filters to my cards with Q", async () => {
     renderAt("/projects/XC");
     await screen.findByText("Issue 1");

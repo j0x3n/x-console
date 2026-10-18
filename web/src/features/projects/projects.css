@@ -1209,6 +1209,25 @@
   flex: none;
   width: 272px;
 }
+/* 桌面上每列最高到看板底部：列名和“添加卡片”不动，只有卡片区上下滚。
+   看板自己不再上下滚，滚卡片时列名不会跟着滚上去。 */
+@media (min-width: 721px) {
+  .projects-board.lists {
+    overflow-y: hidden;
+  }
+  .projects-board.lists > .projects-lane:not(.collapsed):not(.add-list) {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+  }
+  .projects-board.lists > .projects-lane > * {
+    flex: none;
+  }
+  .projects-board.lists > .projects-lane > .projects-lane-list {
+    flex: 0 1 auto;
+    max-height: none;
+  }
+}
 .projects-board.lists > .projects-lane::before {
   content: "";
   position: absolute;
@@ -2313,4 +2332,11 @@ textarea.projects-ttl:focus {
   color: var(--xc-faint);
   font-size: var(--fs-11);
   font-variant-numeric: tabular-nums;
+}
+
+/* 长描述编辑时编辑框不超过大半屏，工具栏和保存按钮都看得到 */
+.projects-description.editing .xc-mde-input,
+.projects-description.editing .xc-mde-preview {
+  max-height: 60vh;
+  overflow-y: auto;
 }

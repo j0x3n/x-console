@@ -5,6 +5,7 @@ import {
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
 import { ChevronsLeftRight, ImagePlus, Plus, X } from "lucide-react";
 import { errorMessage } from "../../../api/client";
@@ -63,7 +64,24 @@ export interface ListActions {
   toggleDone: (issue: Issue) => void;
 }
 
-/** 一行输入：回车提交，Esc 关闭。提交后清空，方便连续输入。 */
+/** 在 ref 以外的地方按下鼠标时调用 onAway（XC-61）。 */
+function useClickAway(ref: RefObject<HTMLElement | null>, onAway: () => void) {
+  const latest = useRef(onAway);
+  latest.current = onAway;
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const root = ref.current;
+      if (root && !root.contains(e.target as Node)) latest.current();
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [ref]);
+}
+
+/**
+ * 一行输入：回车提交，Esc 关闭。提交后清空，方便连续输入。
+ * 点到外面时：有内容就提交再关，没内容直接关。
+ */
 function InlineInput({
   placeholder,
   onSubmit,
@@ -79,19 +97,30 @@ function InlineInput({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => ref.current?.focus(), []);
   const submit = async () => {
     const value = text.trim();
-    if (!value || busy) return;
+    if (!value || busy) return false;
     setBusy(true);
     try {
       await onSubmit(value);
       setText("");
+      return true;
     } finally {
       setBusy(false);
       ref.current?.focus();
     }
   };
+  useClickAway(root, () => {
+    if (busy) return;
+    if (!text.trim()) onClose();
+    else
+      void submit().then(
+        (ok) => ok && onClose(),
+        () => {},
+      );
+  });
   const props = {
     ref,
     value: text,
@@ -107,7 +136,7 @@ function InlineInput({
     },
   };
   return (
-    <div className="projects-inline">
+    <div ref={root} className="projects-inline">
       {multiline ? <textarea rows={2} {...props} /> : <input {...props} />}
       <div className="projects-inline-actions">
         <button
@@ -149,6 +178,7 @@ function CardInput({
   const [busy, setBusy] = useState(false);
   const [images, setImages] = useState<PendingImage[]>([]);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => ref.current?.focus(), []);
   const imagesRef = useRef(images);
@@ -216,7 +246,7 @@ function CardInput({
     // 只有图片没写标题时，用第一张图的文件名当标题
     const value =
       text.trim() || (done[0]?.name.replace(/\.[a-z0-9]+$/i, "") ?? "");
-    if (!value || busy || uploading) return;
+    if (!value || busy || uploading) return false;
     setBusy(true);
     try {
       await onSubmit(
@@ -226,11 +256,22 @@ function CardInput({
       setText("");
       images.forEach((i) => URL.revokeObjectURL(i.preview));
       setImages([]);
+      return true;
     } finally {
       setBusy(false);
       ref.current?.focus();
     }
   };
+  // 点到外面：空的就关掉，有内容就存成卡片再关。图片还在传时先不动。
+  useClickAway(root, () => {
+    if (busy || uploading) return;
+    if (!text.trim() && !images.some((i) => i.markdown)) onClose();
+    else
+      void submit().then(
+        (ok) => ok && onClose(),
+        () => {},
+      );
+  });
 
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(e.clipboardData.files);
@@ -242,6 +283,7 @@ function CardInput({
 
   return (
     <div
+      ref={root}
       className="projects-inline projects-card-composer"
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) e.preventDefault();
@@ -334,7 +376,7 @@ function CardInput({
 
 /**
  * 横向滚动的看板（B55）：滚动条平时隐藏，两边还能滚时有渐隐；
- * 在空白处按住拖动、或者用滚轮都能左右滚。
+ * 在空白处按住拖动、或者用滚轮都能左右滚。卡片放不下的列上滚轮只上下滚。
  */
 function useBoardScroll() {
   const ref = useRef<HTMLDivElement>(null);
@@ -351,9 +393,17 @@ function useBoardScroll() {
     const onWheel = (e: WheelEvent) => {
       if (el.scrollWidth <= el.clientWidth || e.shiftKey) return;
       if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      // 列表自己能上下滚时交给列表
-      const list = (e.target as HTMLElement).closest?.(".projects-lane-list");
-      if (list && list.scrollHeight > list.clientHeight) return;
+      // 鼠标在一列上、这列的卡片放不下时，滚轮上下滚这一列，不左右滚（XC-62）。
+      // 指在列名或“添加卡片”上时也滚这一列的卡片。
+      const lane = (e.target as HTMLElement).closest?.(".projects-lane");
+      const list = lane?.querySelector<HTMLElement>(".projects-lane-list");
+      if (list && list.scrollHeight > list.clientHeight) {
+        if (!list.contains(e.target as Node)) {
+          e.preventDefault();
+          list.scrollTop += e.deltaY;
+        }
+        return;
+      }
       e.preventDefault();
       el.scrollLeft += e.deltaY;
     };
