@@ -16,7 +16,7 @@ import {
 import { useT } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
 import { useMonitors, useScripts, useSubscriptions } from "./api";
-import { monitorTone } from "./lib";
+import { countedMonitors, monitorTone } from "./lib";
 import { useQuotaAccounts } from "../quotas/api";
 import { useWatchers } from "../watchers/api";
 
@@ -36,7 +36,7 @@ export default function MonitoringNavChildren({
   const quotas = useQuotaAccounts();
   const watchers = useWatchers();
   const list = monitors.data ?? [];
-  const down = list.filter((m) => m.enabled && m.lastStatus === "down");
+  const down = countedMonitors(list).filter((m) => m.lastStatus === "down");
   const sites = list.filter((m) => m.kind === "http");
   // 只在有故障时显示红色数字
   const downSites = down.filter((m) => m.kind === "http").length;

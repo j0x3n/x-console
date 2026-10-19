@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Monitor } from "./api";
 import {
   addMonths,
+  countedMonitors,
   appendLog,
   containerTone,
   emptyLog,
@@ -373,5 +374,24 @@ describe("网站和域名（B50）", () => {
       ["b.com", [3], 5],
       ["a.com", [2, 1], 40],
     ]);
+  });
+});
+
+describe("计入数字的监控", () => {
+  const m = (
+    id: number,
+    kind: Monitor["kind"],
+    target: string,
+    enabled = true,
+  ) => ({ id, kind, target, enabled }) as Monitor;
+  it("暂停的证书或域名不计入，同一行的另一项也不计入", () => {
+    const list = [
+      m(1, "tls", "www.a.com", false),
+      m(2, "domain", "a.com"),
+      m(3, "tls", "b.com"),
+      m(4, "http", "https://a.com"),
+      m(5, "http", "https://c.com", false),
+    ];
+    expect(countedMonitors(list).map((x) => x.id)).toEqual([3, 4]);
   });
 });

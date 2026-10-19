@@ -14,6 +14,7 @@ import {
 import CertsTab from "./components/CertsTab";
 import { useParam } from "./components/common";
 import {
+  countedMonitors,
   formatMoney,
   SPEND_CURRENCIES,
   spendView,
@@ -105,8 +106,8 @@ function MonitoringStats() {
   const sites = monitors.filter((m) => m.kind === "http" && m.enabled);
   const up = sites.filter((m) => m.lastStatus === "up").length;
   const down = sites.filter((m) => m.lastStatus === "down").length;
-  const expiring = monitors
-    .filter((m) => m.kind !== "http" && m.enabled && m.daysLeft != null)
+  const expiring = countedMonitors(monitors)
+    .filter((m) => m.kind !== "http" && m.daysLeft != null)
     .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
   const soonest = expiring[0];
   const nextSub = [...subs]

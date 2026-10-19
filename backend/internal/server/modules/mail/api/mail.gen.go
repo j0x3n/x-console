@@ -272,6 +272,15 @@ type MailReadAll struct {
 	AccountId *int64 `json:"accountId,omitempty"`
 }
 
+// MailSorting defines model for MailSorting.
+type MailSorting struct {
+	// ImportantOnly 分拣成通知的邮件只有重要的才推送，不重要的不推。要处理的邮件和验证码照常推送，没分拣过的邮件也照常推送
+	ImportantOnly bool `json:"importantOnly"`
+
+	// MarkPromoRead 新到的邮件被分拣成营销时，自动在邮箱服务器上标成已读
+	MarkPromoRead bool `json:"markPromoRead"`
+}
+
 // MailSummary defines model for MailSummary.
 type MailSummary struct {
 	AccountId      int64       `json:"accountId"`
@@ -322,6 +331,9 @@ type MailTriage struct {
 
 	// DoneAt B220：标成已处理的时间，没标时不给
 	DoneAt *time.Time `json:"doneAt,omitempty"`
+
+	// Important B256：通知里需要马上知道的（账号安全、扣款失败、快到期、故障等）。只有 category 是 notice 时可能为 true
+	Important bool `json:"important"`
 
 	// Summary 一句话说明这封邮件要你做什么或讲了什么
 	Summary string `json:"summary"`
@@ -379,6 +391,9 @@ type SetMailDoneJSONRequestBody = MailDone
 // MarkAllMailReadJSONRequestBody defines body for MarkAllMailRead for application/json ContentType.
 type MarkAllMailReadJSONRequestBody = MailReadAll
 
+// PutMailSortingJSONRequestBody defines body for PutMailSorting for application/json ContentType.
+type PutMailSortingJSONRequestBody = MailSorting
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -420,6 +435,12 @@ type ServerInterface interface {
 
 	// (POST /mail/read-all)
 	MarkAllMailRead(w http.ResponseWriter, r *http.Request)
+
+	// (GET /mail/sorting)
+	GetMailSorting(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /mail/sorting)
+	PutMailSorting(w http.ResponseWriter, r *http.Request)
 
 	// (GET /mail/summary)
 	GetMailSummary(w http.ResponseWriter, r *http.Request)
@@ -494,6 +515,16 @@ func (_ Unimplemented) TriageMailMessage(w http.ResponseWriter, r *http.Request,
 
 // (POST /mail/read-all)
 func (_ Unimplemented) MarkAllMailRead(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /mail/sorting)
+func (_ Unimplemented) GetMailSorting(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /mail/sorting)
+func (_ Unimplemented) PutMailSorting(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -887,6 +918,34 @@ func (siw *ServerInterfaceWrapper) MarkAllMailRead(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetMailSorting operation middleware
+func (siw *ServerInterfaceWrapper) GetMailSorting(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMailSorting(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMailSorting operation middleware
+func (siw *ServerInterfaceWrapper) PutMailSorting(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMailSorting(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMailSummary operation middleware
 func (siw *ServerInterfaceWrapper) GetMailSummary(w http.ResponseWriter, r *http.Request) {
 
@@ -1069,6 +1128,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/mail/messages/{messageId}/done", wrapper.SetMailDone)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/mail/sorting", wrapper.GetMailSorting)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/mail/sorting", wrapper.PutMailSorting)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/mail/summary", wrapper.GetMailSummary)

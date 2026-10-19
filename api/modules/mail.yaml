@@ -253,6 +253,36 @@ paths:
         "204": { description: 已保存 }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /mail/sorting:
+    get:
+      operationId: getMailSorting
+      tags: [mail]
+      description: B256：AI 分拣的两项设置，对所有邮箱生效。
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailSorting" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putMailSorting
+      tags: [mail]
+      description: 保存设置。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailSorting" }
+      responses:
+        "200":
+          description: 保存好的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailSorting" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /mail/summary:
     get:
       operationId: getMailSummary
@@ -359,13 +389,20 @@ components:
       properties:
         date: { type: string, description: YYYY-MM-DD }
         text: { type: string, description: 这个日期是什么事，比如 续费截止 }
+    MailSorting:
+      type: object
+      required: [markPromoRead, importantOnly]
+      properties:
+        markPromoRead: { type: boolean, description: 新到的邮件被分拣成营销时，自动在邮箱服务器上标成已读 }
+        importantOnly: { type: boolean, description: 分拣成通知的邮件只有重要的才推送，不重要的不推。要处理的邮件和验证码照常推送，没分拣过的邮件也照常推送 }
     MailTriage:
       type: object
-      required: [category, decision, code, summary, dates]
+      required: [category, decision, code, important, summary, dates]
       properties:
         category: { $ref: "#/components/schemas/MailCategory" }
         decision: { type: boolean, description: B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true }
         code: { type: boolean, description: B225：这封是验证码、一次性密码或登录码。营销邮件一律 false }
+        important: { type: boolean, description: B256：通知里需要马上知道的（账号安全、扣款失败、快到期、故障等）。只有 category 是 notice 时可能为 true }
         doneAt: { type: string, format: date-time, description: B220：标成已处理的时间，没标时不给 }
         summary: { type: string, description: 一句话说明这封邮件要你做什么或讲了什么 }
         dates:

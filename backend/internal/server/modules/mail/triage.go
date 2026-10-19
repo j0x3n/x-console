@@ -27,6 +27,10 @@ import (
 // (B127). Mail text is data, not instructions, and the
 // answer is checked before it is stored.
 //
+// B256: a notice also gets "important". Two settings (sorting.go) use the
+// result: marketing mail can be marked read when it arrives, and notices can
+// be pushed only when they are important.
+//
 // B220: action mail that is not marked done is shown on the Today page, with
 // a flag for the ones that need my decision. This is display only: nothing is
 // replied to, deleted or created because of what a mail says.
@@ -93,21 +97,23 @@ const triageSystem = `你是邮件分拣助手。下面是几封邮件，每封�
 - dates：邮件里明确写出的、需要我留意的日期（截止日、到期日、活动日），格式 YYYY-MM-DD，text 说明是什么事，不超过 20 个字，最多 3 个。没有明确日期就给空数组，不要猜。年份没写的按今天的日期推算最近的将来。
 - decision：只对 action 判断。需要我做决定的邮件为 true，比如批准、选方案、答应或拒绝邀请、确认报价。单纯要我去做某件事的为 false，比如付款、签字、提交材料、回一句话。notice 和 promo 一律 false。拿不准时 false。
 - code：邮件里有验证码、一次性密码或登录码，需要收件人抄下来或填进去，为 true。没有就 false。promo 一律 false。拿不准时 false。
+- important：只对 notice 判断。收件人应该马上知道的通知为 true，比如账号安全（新设备登录、改密码、异常活动）、扣款失败或需要处理的账单、快到期或快到截止日、账号或服务出问题、故障、物流异常。例行的收据、发货或签收进度、服务的资讯、社交和应用动态、产品更新、已经完成的操作为 false。action 和 promo 一律 false。拿不准时 true。
 - 拿不准时归 notice。`
 
 var triageSchema = json.RawMessage(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{
-"index":{"type":"integer"},"category":{"type":"string","enum":["action","notice","promo"]},"decision":{"type":"boolean"},"code":{"type":"boolean"},"summary":{"type":"string"},
+"index":{"type":"integer"},"category":{"type":"string","enum":["action","notice","promo"]},"decision":{"type":"boolean"},"code":{"type":"boolean"},"important":{"type":"boolean"},"summary":{"type":"string"},
 "dates":{"type":"array","items":{"type":"object","properties":{"date":{"type":"string"},"text":{"type":"string"}},"required":["date","text"],"additionalProperties":false}}},
-"required":["index","category","decision","code","summary","dates"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}`)
+"required":["index","category","decision","code","important","summary","dates"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}`)
 
 type triageAnswer struct {
 	Items []struct {
-		Index    int                  `json:"index"`
-		Category string               `json:"category"`
-		Decision bool                 `json:"decision"`
-		Code     bool                 `json:"code"`
-		Summary  string               `json:"summary"`
-		Dates    []api.MailTriageDate `json:"dates"`
+		Index     int                  `json:"index"`
+		Category  string               `json:"category"`
+		Decision  bool                 `json:"decision"`
+		Code      bool                 `json:"code"`
+		Important bool                 `json:"important"`
+		Summary   string               `json:"summary"`
+		Dates     []api.MailTriageDate `json:"dates"`
 	} `json:"items"`
 }
 
@@ -218,7 +224,7 @@ func (m *Module) classifyWithJev(ctx context.Context, msgs []triageInput, today 
 		if !cat.Valid() {
 			continue
 		}
-		t := api.MailTriage{Category: cat, Decision: cat == api.Action && v.Decision, Code: cat != api.Promo && v.Code, Dates: []api.MailTriageDate{}}
+		t := api.MailTriage{Category: cat, Decision: cat == api.Action && v.Decision, Code: cat != api.Promo && v.Code, Important: cat == api.Notice && v.Important, Dates: []api.MailTriageDate{}}
 		out[x.ID] = t
 		if cat == api.Action {
 			action = append(action, i)
@@ -290,7 +296,7 @@ func (m *Module) classifyWithLLM(ctx context.Context, msgs []triageInput, today 
 		if !cat.Valid() {
 			continue
 		}
-		t := api.MailTriage{Category: cat, Decision: cat == api.Action && it.Decision, Code: cat != api.Promo && it.Code, Summary: clipSummary(it.Summary), Dates: checkDates(it.Dates, today)}
+		t := api.MailTriage{Category: cat, Decision: cat == api.Action && it.Decision, Code: cat != api.Promo && it.Code, Important: cat == api.Notice && it.Important, Summary: clipSummary(it.Summary), Dates: checkDates(it.Dates, today)}
 		if cat != api.Action {
 			t.Dates = []api.MailTriageDate{}
 		}
@@ -301,20 +307,23 @@ func (m *Module) classifyWithLLM(ctx context.Context, msgs []triageInput, today 
 
 func (m *Module) saveTriage(ctx context.Context, id int64, t api.MailTriage, source string) error {
 	dates, _ := json.Marshal(t.Dates)
-	var decision, code int64
+	var decision, code, important int64
 	if t.Decision {
 		decision = 1
 	}
 	if t.Code {
 		code = 1
 	}
+	if t.Important {
+		important = 1
+	}
 	// The upsert leaves done_at alone, so sorting again keeps "done".
-	return m.q.UpsertTriage(ctx, db.UpsertTriageParams{MessageID: id, Category: string(t.Category), Decision: decision, Code: code,
+	return m.q.UpsertTriage(ctx, db.UpsertTriageParams{MessageID: id, Category: string(t.Category), Decision: decision, Code: code, Important: important,
 		Summary: t.Summary, Dates: string(dates), Source: source, TriagedAt: m.now().UTC()})
 }
 
 func toTriage(r db.MailTriage) api.MailTriage {
-	t := api.MailTriage{Category: api.MailCategory(r.Category), Decision: r.Decision != 0, Code: r.Code != 0, Summary: r.Summary, Dates: []api.MailTriageDate{}}
+	t := api.MailTriage{Category: api.MailCategory(r.Category), Decision: r.Decision != 0, Code: r.Code != 0, Important: r.Important != 0, Summary: r.Summary, Dates: []api.MailTriageDate{}}
 	if r.DoneAt != nil {
 		done := r.DoneAt.UTC()
 		t.DoneAt = &done

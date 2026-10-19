@@ -43,7 +43,7 @@ func TestJevProviderSortsMailAndCannotChat(t *testing.T) {
 			case strings.Contains(string(raw), "验证码"):
 				choice, noul, codeNoul = "notice", 0.1, 0.91
 			}
-			fmt.Fprintf(w, `{"model":"jev-1.13.0","answers":{"category":{"type":"choice","choice":%q,"probabilities":{},"confidence":%g},"decision":{"type":"noul","noul":%g},"code":{"type":"noul","noul":%g}},"usage":{"input_tokens":1000,"output_tokens":20}}`, choice, confidence, noul, codeNoul)
+			fmt.Fprintf(w, `{"model":"jev-1.13.0","answers":{"category":{"type":"choice","choice":%q,"probabilities":{},"confidence":%g},"decision":{"type":"noul","noul":%g},"code":{"type":"noul","noul":%g},"important":{"type":"noul","noul":0.9}},"usage":{"input_tokens":1000,"output_tokens":20}}`, choice, confidence, noul, codeNoul)
 		default:
 			http.NotFound(w, r)
 		}
@@ -108,7 +108,7 @@ func TestJevProviderSortsMailAndCannotChat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, kept := out[3]; kept || !out[1].Decision || out[1].Category != "action" || out[1].Code || out[2].Decision || out[2].Code || out[2].Category != "promo" || !out[4].Code || out[4].Decision || out[4].Category != "notice" {
+	if _, kept := out[3]; kept || !out[1].Decision || out[1].Category != "action" || out[1].Code || out[2].Decision || out[2].Code || out[2].Category != "promo" || !out[4].Code || out[4].Decision || out[4].Category != "notice" || out[1].Important || out[2].Important || !out[4].Important {
 		t.Fatalf("verdicts: %+v", out)
 	}
 	mu.Lock()

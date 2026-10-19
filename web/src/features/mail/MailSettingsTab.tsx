@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mail, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { isNotLive } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import MoreMenu from "../../components/ui/MoreMenu";
+import Switch from "../../components/ui/Switch";
 import {
   EmptyState,
   ErrorState,
@@ -15,8 +16,11 @@ import { relativeTime } from "../../lib/time";
 import {
   useDeleteMailAccount,
   useMailAccounts,
+  useMailSorting,
+  useSaveMailSorting,
   useSyncMailAccount,
   type MailAccount,
+  type MailSorting,
 } from "./api";
 import AccountDialog from "./components/AccountDialog";
 import { useNotifyMutes } from "../reminders/api";
@@ -24,7 +28,10 @@ import { mailScope } from "../reminders/mutes";
 import "./i18n";
 import "./mail.css";
 
-/** 设置 → 邮件（B53）：邮箱账号的添加、修改、删除和连接状态。 */
+/**
+ * 设置 → 邮件（B53）：邮箱账号的添加、修改、删除和连接状态。
+ * B256：下面是 AI 分拣的两项设置，邮件页右上角的设置按钮跳到 #mail-sorting。
+ */
 export default function MailSettingsTab() {
   const t = useT();
   const accounts = useMailAccounts();
@@ -78,12 +85,84 @@ export default function MailSettingsTab() {
           )}
         </p>
       </div>
+      <SortingCard />
       <AccountDialog
         open={editing !== null}
         onClose={() => setEditing(null)}
         account={editing === "new" ? null : editing}
       />
     </div>
+  );
+}
+
+/** B256：对所有开了 AI 分拣的邮箱生效。 */
+function SortingCard() {
+  const t = useT();
+  const sorting = useMailSorting();
+  const save = useSaveMailSorting();
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (sorting.data && location.hash === "#mail-sorting")
+      ref.current?.scrollIntoView?.({ block: "start" });
+  }, [sorting.data]);
+  const data = sorting.data;
+  const change = (patch: Partial<MailSorting>) =>
+    data &&
+    save.mutate(
+      { ...data, ...patch },
+      { onError: (e) => toast({ message: e.message, tone: "error" }) },
+    );
+  return (
+    <section className="xc-card" id="mail-sorting" ref={ref}>
+      <div className="xc-card-head">
+        <h2>{t("Mail sorting settings")}</h2>
+      </div>
+      {sorting.isError ? (
+        <ErrorState error={sorting.error} onRetry={() => sorting.refetch()} />
+      ) : !data ? (
+        <Loading />
+      ) : (
+        <>
+          <p className="settings-note">
+            {t(
+              "These apply to mailboxes that sort new mail with AI. Mail that needs action and verification codes are always pushed.",
+            )}
+          </p>
+          <div className="settings-row">
+            <div>
+              <strong>{t("Mark marketing mail as read")}</strong>
+              <small>
+                {t(
+                  "New mail that AI sorts as marketing is marked read on the mailbox.",
+                )}
+              </small>
+            </div>
+            <Switch
+              checked={data.markPromoRead}
+              disabled={save.isPending}
+              label={t("Mark marketing mail as read")}
+              onChange={(v) => change({ markPromoRead: v })}
+            />
+          </div>
+          <div className="settings-row">
+            <div>
+              <strong>{t("Push important notices only")}</strong>
+              <small>
+                {t(
+                  "Notices that AI finds unimportant, such as receipts and app updates, are not pushed.",
+                )}
+              </small>
+            </div>
+            <Switch
+              checked={data.importantOnly}
+              disabled={save.isPending}
+              label={t("Push important notices only")}
+              onChange={(v) => change({ importantOnly: v })}
+            />
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 

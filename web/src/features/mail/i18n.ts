@@ -6,6 +6,16 @@ registerZh({
   "The sender, subject and first lines of each new mail are sent to your AI. Mail that needs you and verification codes are pushed at once. Marketing mail is not pushed. Other mail waits for the digest.":
     "每封新邮件的发件人、主题和开头几行会发给你的 AI。要处理和验证码马上推送。营销邮件不推送。其他的等合并推送。",
   "AI sorting": "AI 分拣",
+  // B256
+  "Mail sorting settings": "分拣设置",
+  "These apply to mailboxes that sort new mail with AI. Mail that needs action and verification codes are always pushed.":
+    "对开了 AI 分拣的邮箱生效。要处理的邮件和验证码一直会推送。",
+  "Mark marketing mail as read": "营销邮件自动已读",
+  "New mail that AI sorts as marketing is marked read on the mailbox.":
+    "新邮件被 AI 分拣成营销后，在邮箱里自动标成已读。",
+  "Push important notices only": "只推送重要通知",
+  "Notices that AI finds unimportant, such as receipts and app updates, are not pushed.":
+    "AI 认为不重要的通知不推送，比如收据和应用更新。",
   "Mail needs action": "要处理",
   "Mail notice": "通知",
   "Mail promo": "营销",

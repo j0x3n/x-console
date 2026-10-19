@@ -188,7 +188,7 @@ func (q *Queries) GetMessageByUID(ctx context.Context, arg GetMessageByUIDParams
 }
 
 const getTriage = `-- name: GetTriage :one
-SELECT message_id, category, summary, dates, source, triaged_at, decision, done_at, code FROM mail_triage WHERE message_id = ?
+SELECT message_id, category, summary, dates, source, triaged_at, decision, done_at, code, important FROM mail_triage WHERE message_id = ?
 `
 
 func (q *Queries) GetTriage(ctx context.Context, messageID int64) (MailTriage, error) {
@@ -204,6 +204,7 @@ func (q *Queries) GetTriage(ctx context.Context, messageID int64) (MailTriage, e
 		&i.Decision,
 		&i.DoneAt,
 		&i.Code,
+		&i.Important,
 	)
 	return i, err
 }
@@ -532,7 +533,7 @@ func (q *Queries) ListTodo(ctx context.Context, arg ListTodoParams) ([]ListTodoR
 }
 
 const listTriageByIDs = `-- name: ListTriageByIDs :many
-SELECT message_id, category, summary, dates, source, triaged_at, decision, done_at, code FROM mail_triage WHERE message_id IN (/*SLICE:ids*/?)
+SELECT message_id, category, summary, dates, source, triaged_at, decision, done_at, code, important FROM mail_triage WHERE message_id IN (/*SLICE:ids*/?)
 `
 
 func (q *Queries) ListTriageByIDs(ctx context.Context, ids []int64) ([]MailTriage, error) {
@@ -564,6 +565,7 @@ func (q *Queries) ListTriageByIDs(ctx context.Context, ids []int64) ([]MailTriag
 			&i.Decision,
 			&i.DoneAt,
 			&i.Code,
+			&i.Important,
 		); err != nil {
 			return nil, err
 		}
@@ -918,8 +920,8 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (M
 }
 
 const upsertTriage = `-- name: UpsertTriage :exec
-INSERT INTO mail_triage (message_id, category, decision, code, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, decision = excluded.decision, code = excluded.code, summary = excluded.summary,
+INSERT INTO mail_triage (message_id, category, decision, code, important, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, decision = excluded.decision, code = excluded.code, important = excluded.important, summary = excluded.summary,
  dates = excluded.dates, source = excluded.source, triaged_at = excluded.triaged_at
 `
 
@@ -928,6 +930,7 @@ type UpsertTriageParams struct {
 	Category  string
 	Decision  int64
 	Code      int64
+	Important int64
 	Summary   string
 	Dates     string
 	Source    string
@@ -940,6 +943,7 @@ func (q *Queries) UpsertTriage(ctx context.Context, arg UpsertTriageParams) erro
 		arg.Category,
 		arg.Decision,
 		arg.Code,
+		arg.Important,
 		arg.Summary,
 		arg.Dates,
 		arg.Source,

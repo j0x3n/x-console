@@ -23,6 +23,7 @@ export type MailTriage = S["MailTriage"];
 export type MailCategory = S["MailCategory"];
 export type MailBatchAction = S["MailBatchAction"];
 export type MailBatchResult = S["MailBatchResult"];
+export type MailSorting = S["MailSorting"];
 
 export interface MailFilter {
   accountId: number | null;
@@ -39,6 +40,7 @@ export const mailKeys = {
   message: (id: number) => ["mail", "message", id] as const,
   summary: ["mail", "summary"] as const,
   todo: ["mail", "todo"] as const,
+  sorting: ["mail", "sorting"] as const,
 };
 
 // 新邮件、已读状态、账号连接状态变化时服务端发 mail.*
@@ -226,6 +228,24 @@ export function useSetMailDone() {
         }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
+  });
+}
+
+/** B256：AI 分拣的两项设置：营销邮件自动已读、只推重要通知。 */
+export function useMailSorting() {
+  return useQuery({
+    queryKey: mailKeys.sorting,
+    queryFn: () => unwrap(mailApi.GET("/mail/sorting")),
+    retry: false,
+  });
+}
+
+export function useSaveMailSorting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: MailSorting) =>
+      unwrap(mailApi.PUT("/mail/sorting", { body })),
+    onSuccess: (data) => qc.setQueryData(mailKeys.sorting, data),
   });
 }
 

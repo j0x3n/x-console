@@ -173,9 +173,10 @@ func (s mailSorter) ask(ctx context.Context, p providerRow, key, model string, i
 	}
 	cat := data.Answers.Category.Choice
 	return contracts.MailVerdict{
-		Category: cat,
-		Decision: cat == "action" && data.Answers.Decision.Noul > 0.5,
-		Code:     cat != "promo" && data.Answers.Code.Noul > 0.5,
+		Category:  cat,
+		Decision:  cat == "action" && data.Answers.Decision.Noul > 0.5,
+		Code:      cat != "promo" && data.Answers.Code.Noul > 0.5,
+		Important: cat == "notice" && data.Answers.Important.Noul > 0.5,
 	}, nil
 }
 
@@ -212,6 +213,14 @@ func jevQuestions() map[string]any {
 				"false": "No code, it is marketing, or you are not sure.",
 			},
 		},
+		"important": map[string]any{
+			"type":         "noul",
+			"instructions": "Is this a notice the recipient should hear about right away? Yes for account security (new sign-in, password change, suspicious activity), a failed payment or a charge that needs attention, something expiring or due soon, an account or service problem, an outage, or a delivery problem. No for routine receipts, shipping or delivered updates, newsletters from services, social or app activity, product updates, and actions the recipient already finished. If you are not sure, the answer is yes.",
+			"criteria": map[string]string{
+				"true":  "The recipient should know now, or you are not sure.",
+				"false": "Routine, can wait or be skipped.",
+			},
+		},
 		"decision": map[string]any{
 			"type":         "noul",
 			"instructions": "Does this email ask the recipient to make a decision, such as approving, choosing an option, accepting or declining an invitation, or confirming a quote? A task to simply do something, such as paying, signing, submitting, or sending a short reply, is not a decision. If you are not sure, the answer is no.",
@@ -236,6 +245,9 @@ type jevResponse struct {
 		Code struct {
 			Noul float64 `json:"noul"`
 		} `json:"code"`
+		Important struct {
+			Noul float64 `json:"noul"`
+		} `json:"important"`
 	} `json:"answers"`
 	Usage struct {
 		Input  int64 `json:"input_tokens"`

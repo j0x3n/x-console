@@ -216,6 +216,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mail/sorting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B256：AI 分拣的两项设置，对所有邮箱生效。 */
+        get: operations["getMailSorting"];
+        /** @description 保存设置。 */
+        put: operations["putMailSorting"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mail/summary": {
         parameters: {
             query?: never;
@@ -330,12 +348,20 @@ export interface components {
             /** @description 这个日期是什么事，比如 续费截止 */
             text: string;
         };
+        MailSorting: {
+            /** @description 新到的邮件被分拣成营销时，自动在邮箱服务器上标成已读 */
+            markPromoRead: boolean;
+            /** @description 分拣成通知的邮件只有重要的才推送，不重要的不推。要处理的邮件和验证码照常推送，没分拣过的邮件也照常推送 */
+            importantOnly: boolean;
+        };
         MailTriage: {
             category: components["schemas"]["MailCategory"];
             /** @description B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true */
             decision: boolean;
             /** @description B225：这封是验证码、一次性密码或登录码。营销邮件一律 false */
             code: boolean;
+            /** @description B256：通知里需要马上知道的（账号安全、扣款失败、快到期、故障等）。只有 category 是 notice 时可能为 true */
+            important: boolean;
             /**
              * Format: date-time
              * @description B220：标成已处理的时间，没标时不给
@@ -781,6 +807,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMailSorting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailSorting"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putMailSorting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailSorting"];
+            };
+        };
+        responses: {
+            /** @description 保存好的设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailSorting"];
+                };
             };
             default: components["responses"]["Error"];
         };

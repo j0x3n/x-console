@@ -1,4 +1,5 @@
 import type { Monitor, Subscription } from "../monitoring/api";
+import { countedMonitors } from "../monitoring/lib";
 
 /*
  * B59：今日页“监控”卡片要提醒的事：挂掉的网站、快到期的证书和域名、
@@ -20,8 +21,7 @@ export function attentionItems(
   subs: Subscription[],
 ): AttentionItem[] {
   const out: AttentionItem[] = [];
-  for (const m of monitors) {
-    if (!m.enabled) continue;
+  for (const m of countedMonitors(monitors)) {
     if (m.kind === "http") {
       if (m.lastStatus === "down")
         out.push({

@@ -7,6 +7,7 @@ const mon = (p: Partial<Monitor>) =>
     id: 1,
     kind: "http",
     name: "x",
+    target: "x.test",
     enabled: true,
     lastStatus: "up",
     ...p,
@@ -20,9 +21,18 @@ describe("今日页监控提醒（B59）", () => {
       [
         mon({ id: 1, name: "官网", lastStatus: "down" }),
         mon({ id: 2, name: "正常网站" }),
-        mon({ id: 3, kind: "tls", name: "证书", daysLeft: 10.5 }),
-        mon({ id: 4, kind: "domain", name: "域名", daysLeft: 200 }),
-        mon({ id: 5, kind: "tls", name: "停用", daysLeft: 1, enabled: false }),
+        mon({ id: 3, kind: "tls", name: "证书", target: "a.com", daysLeft: 10.5 }),
+        mon({ id: 4, kind: "domain", name: "域名", target: "b.com", daysLeft: 200 }),
+        mon({
+          id: 5,
+          kind: "tls",
+          name: "停用",
+          target: "c.com",
+          daysLeft: 1,
+          enabled: false,
+        }),
+        // 同一个主域名下有一项暂停，整行都不提醒
+        mon({ id: 6, kind: "domain", name: "同行域名", target: "c.com", daysLeft: 2 }),
       ],
       [sub({ id: 9, name: "ECS", daysLeft: 2 }), sub({ id: 8, daysLeft: 20 })],
     );

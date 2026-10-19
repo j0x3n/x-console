@@ -1,20 +1,18 @@
 import type { NavBadge } from "../../lib/navBadges";
 import { useMonitors, useSubscriptions } from "./api";
+import { countedMonitors } from "./lib";
 
 const SOON_DAYS = 7;
 const RENEWAL_DAYS = 3;
 
 /** 左栏“监控”：故障监控、7 天内到期的证书或域名、3 天内续费的订阅。 */
 export function useMonitoringBadge(): NavBadge | null {
-  const monitors = useMonitors().data ?? [];
+  const monitors = countedMonitors(useMonitors().data ?? []);
   const subs = useSubscriptions(false).data ?? [];
-  const down = monitors.filter((m) => m.enabled && m.lastStatus === "down");
+  const down = monitors.filter((m) => m.lastStatus === "down");
   const expiring = monitors.filter(
     (m) =>
-      m.enabled &&
-      m.lastStatus !== "down" &&
-      m.daysLeft != null &&
-      m.daysLeft <= SOON_DAYS,
+      m.lastStatus !== "down" && m.daysLeft != null && m.daysLeft <= SOON_DAYS,
   );
   const renewing = subs.filter((s) => s.daysLeft <= RENEWAL_DAYS);
   const n = down.length + expiring.length + renewing.length;

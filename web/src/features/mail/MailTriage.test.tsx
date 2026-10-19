@@ -58,6 +58,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import MailPage from "./MailPage";
+import MailSettingsTab from "./MailSettingsTab";
 import "./i18n";
 
 const account = (triage: boolean) => ({
@@ -306,5 +307,54 @@ describe("右键菜单（XC-66）", () => {
     await waitFor(() =>
       expect(batches().at(-1)?.body).toEqual({ ids: [4], action: "delete" }),
     );
+  });
+});
+
+describe("邮件分拣与设置入口（B256）", () => {
+  it("邮件页右上角有分拣设置入口链接", async () => {
+    setup();
+    renderAt("/mail");
+    const link = await screen.findByRole("link", { name: "分拣设置" });
+    expect(link.getAttribute("href")).toBe("/settings/mail?section=mail-sorting");
+  });
+
+  it("邮箱设置页显示分拣设置并能修改保存", async () => {
+    setup();
+    let saved: unknown = null;
+    api.routes.set("GET /mail/sorting", () => ({
+      status: 200,
+      body: { markPromoRead: false, importantOnly: false },
+    }));
+    api.routes.set("PUT /mail/sorting", (body) => {
+      saved = body;
+      return { status: 200, body };
+    });
+    api.routes.set("GET /reminders/mutes", () => ({
+      status: 200,
+      body: [],
+    }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={["/settings/mail"]}>
+          <MailSettingsTab />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const promoSwitch = await screen.findByLabelText("营销邮件自动已读");
+    const importantSwitch = await screen.findByLabelText("只推送重要通知");
+    expect((promoSwitch as HTMLInputElement).checked).toBe(false);
+    expect((importantSwitch as HTMLInputElement).checked).toBe(false);
+
+    fireEvent.click(promoSwitch);
+    await waitFor(() => {
+      expect(saved).toEqual({ markPromoRead: true, importantOnly: false });
+    });
+
+    fireEvent.click(importantSwitch);
+    await waitFor(() => {
+      expect(saved).toEqual({ markPromoRead: true, importantOnly: true });
+    });
   });
 });

@@ -85,10 +85,13 @@ type MailSortItem struct {
 // MailVerdict is the category, whether the recipient must decide, and whether
 // the mail contains a verification code. Category is action, notice or promo.
 // Decision is only meaningful for action. Code is false for promo.
+// Important is only meaningful for notice (B256): a notice the recipient
+// should hear about at once.
 type MailVerdict struct {
-	Category string
-	Decision bool
-	Code     bool
+	Category  string
+	Decision  bool
+	Code      bool
+	Important bool
 }
 
 // MailSorter classifies mail without writing a summary. Available is false

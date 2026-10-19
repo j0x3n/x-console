@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   CheckCheck,
   ListChecks,
@@ -8,6 +8,7 @@ import {
   Paperclip,
   Plus,
   RefreshCw,
+  Settings2,
   Star,
   Trash2,
 } from "lucide-react";
@@ -229,6 +230,14 @@ export default function MailPage() {
                 <CheckCheck size={14} />
               </button>
             )}
+            <Link
+              className="xc-btn small"
+              to="/settings/mail?section=mail-sorting"
+              title={t("Mail sorting settings")}
+              aria-label={t("Mail sorting settings")}
+            >
+              <Settings2 size={14} />
+            </Link>
             <button
               className="xc-btn small"
               title={t("Sync now")}

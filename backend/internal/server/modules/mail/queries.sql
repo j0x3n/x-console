@@ -70,8 +70,8 @@ ORDER BY date DESC, id DESC
 LIMIT sqlc.arg(lim);
 
 -- name: UpsertTriage :exec
-INSERT INTO mail_triage (message_id, category, decision, code, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, decision = excluded.decision, code = excluded.code, summary = excluded.summary,
+INSERT INTO mail_triage (message_id, category, decision, code, important, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, decision = excluded.decision, code = excluded.code, important = excluded.important, summary = excluded.summary,
  dates = excluded.dates, source = excluded.source, triaged_at = excluded.triaged_at;
 
 -- name: SetTriageDone :execrows

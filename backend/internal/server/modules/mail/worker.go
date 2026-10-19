@@ -341,6 +341,8 @@ func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, s
 	// B136: sort first. Action mail and verification codes are pushed at once.
 	// Marketing mail is not pushed.
 	sorted := m.triageArrived(ctx, acc, fresh)
+	// B256: marketing mail can be marked read at once (setting).
+	m.markPromoRead(ctx, c, acc, fresh, sorted)
 	if acc.Notify == 1 {
 		m.notifyNew(ctx, acc, fresh, sorted)
 	}
@@ -437,6 +439,7 @@ func cleanLine(s string) string {
 
 // notifyNew pushes new mail: one notice each, or one for all when many
 // arrived at once. Promo mail is left out. Unsorted mail is still pushed.
+// B256: with the "important only" setting, unimportant notices are left out too.
 func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.MailMessage, sorted map[int64]api.MailTriage) {
 	if len(msgs) == 0 {
 		return
@@ -451,10 +454,11 @@ func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.Ma
 			m.d.Log.Warn("mail: notify", "err", err)
 		}
 	}
+	importantOnly := m.sorting(ctx).ImportantOnly
 	var kept []db.MailMessage
 	immediate := false
 	for _, x := range msgs {
-		skip, now, _ := mailPush(sorted, x.ID)
+		skip, now, _ := mailPush(sorted, x.ID, importantOnly)
 		if skip {
 			continue
 		}
@@ -482,7 +486,7 @@ func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.Ma
 			from = x.FromAddress
 		}
 		title := from + "：" + subjectOrNone(x.Subject)
-		_, now, prefix := mailPush(sorted, x.ID)
+		_, now, prefix := mailPush(sorted, x.ID, importantOnly)
 		if prefix != "" {
 			title = prefix + title
 		}
@@ -493,7 +497,10 @@ func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.Ma
 	}
 }
 
-func mailPush(sorted map[int64]api.MailTriage, id int64) (skip bool, immediate bool, prefix string) {
+// mailPush decides how one sorted message is pushed. With importantOnly, a
+// notice that is not important is not pushed, and an important one is pushed
+// at once (B256).
+func mailPush(sorted map[int64]api.MailTriage, id int64, importantOnly bool) (skip bool, immediate bool, prefix string) {
 	t, ok := sorted[id]
 	if !ok {
 		return false, false, ""
@@ -506,6 +513,12 @@ func mailPush(sorted map[int64]api.MailTriage, id int64) (skip bool, immediate b
 	}
 	if t.Category == api.Action {
 		return false, true, "（要处理）"
+	}
+	if importantOnly && t.Category == api.Notice {
+		if !t.Important {
+			return true, false, ""
+		}
+		return false, true, "（重要）"
 	}
 	return false, false, ""
 }

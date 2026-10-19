@@ -457,7 +457,8 @@ export function normalizeSiteUrl(input: string): string {
 }
 
 /** 网址、host 或 host:port 里的主机名，小写。 */
-export function hostOf(target: string): string {
+export function hostOf(target?: string | null): string {
+  if (!target) return "";
   const v = target.trim().toLowerCase();
   try {
     if (v.includes("://")) return new URL(v).hostname;
@@ -574,5 +575,23 @@ export function groupByDomain(monitors: Monitor[]): DomainGroup[] {
     (a, b) =>
       (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) ||
       a.domain.localeCompare(b.domain),
+  );
+}
+
+/**
+ * 计入左栏数字、角标和今日提醒的监控（证书和域名监控暂停后不再算）。
+ * 证书和域名在列表里是一行，同一个主域名下有任何一项暂停，整行都不计入。
+ */
+export function countedMonitors(monitors: Monitor[]): Monitor[] {
+  const paused = new Set(
+    monitors
+      .filter((m) => m.kind !== "http" && !m.enabled && m.target)
+      .map((m) => registrableDomain(m.target))
+      .filter(Boolean),
+  );
+  return monitors.filter(
+    (m) =>
+      m.enabled &&
+      (m.kind === "http" || !m.target || !paused.has(registrableDomain(m.target))),
   );
 }
