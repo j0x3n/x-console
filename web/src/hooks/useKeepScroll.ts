@@ -17,6 +17,16 @@ const MAX_ENTRIES = 300;
 
 const scrolls = loadMap(SCROLL_KEY) as Map<string, number>;
 const paths = loadMap(PATH_KEY) as Map<string, string>;
+function withoutSettings(path: string): string {
+  const split = path.indexOf("?");
+  if (split < 0) return path;
+  const params = new URLSearchParams(path.slice(split + 1));
+  if (!params.has("settings")) return path;
+  params.delete("settings");
+  params.delete("section");
+  const search = params.toString();
+  return path.slice(0, split) + (search ? `?${search}` : "");
+}
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function readScroll(key: string): number | undefined {
@@ -47,7 +57,7 @@ export function moduleRoot(pathname: string): string | null {
 export function rememberPath(pathname: string, search: string) {
   const root = moduleRoot(pathname);
   if (!root) return;
-  paths.set(root, pathname + search);
+  paths.set(root, withoutSettings(pathname + search));
   persistMap(PATH_KEY, paths);
 }
 
@@ -57,7 +67,7 @@ export function rememberPath(pathname: string, search: string) {
  */
 export function lastPathFor(root: string, currentPath: string): string {
   if (moduleRoot(currentPath) === root) return root;
-  return paths.get(root) ?? root;
+  return withoutSettings(paths.get(root) ?? root);
 }
 
 type Target = HTMLElement | null | undefined;

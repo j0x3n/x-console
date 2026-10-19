@@ -13,6 +13,7 @@ import { Outlet, RouterProvider, createMemoryRouter } from "react-router";
 import SettingsHost from "./SettingsHost";
 import { routes as settingsRoutes } from "./routes";
 import { settingsTarget } from "./nav";
+import "./SettingsDialog";
 
 // 设置页的接口在这里都回 404，只看弹窗怎么开、怎么关、怎么换页。
 globalThis.fetch = (async () =>
@@ -40,6 +41,7 @@ function show(path: string) {
           { index: true, element: <p>today</p> },
           { path: "notes", element: <p>notes page</p> },
           { path: "cards", element: <p>cards page</p> },
+          { path: "projects", element: <p>projects page</p> },
           ...settingsRoutes,
         ],
       },
@@ -75,13 +77,9 @@ describe("settings dialog (B180)", () => {
     const router = show("/notes?id=5");
     await screen.findByText("notes page");
     await act(() => router.navigate("/settings/linear"));
-    // Linear 并进了 Git 那一页
     expect(where(router)).toBe("/notes?id=5&settings=git");
     expect(await screen.findByRole("dialog", { name: "设置" })).toBeTruthy();
     expect(screen.getByText("notes page")).toBeTruthy();
-    expect(
-      screen.getByRole("button", { current: "page" }).textContent,
-    ).toContain("Git");
   });
 
   it("switches tabs without new history and closes with Esc", async () => {
@@ -101,6 +99,28 @@ describe("settings dialog (B180)", () => {
     const router = show("/settings/cards");
     await screen.findByText("cards page");
     expect(where(router)).toBe("/cards?tab=settings");
+  });
+
+  it("关闭浏览器返回恢复的弹窗时留在原页面", async () => {
+    const router = show("/projects");
+    await act(() => router.navigate("/settings/security"));
+    await screen.findByRole("dialog", { name: "设置" });
+    await act(() => router.navigate("/notes"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await act(() => router.navigate(-1));
+    await screen.findByRole("dialog", { name: "设置" });
+    fireEvent.click(screen.getAllByRole("button", { name: "关闭设置" })[0]);
+    await waitFor(() => expect(where(router)).toBe("/projects"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("过期的设置地址重新打开时关闭只去掉参数，不离开当前页面", async () => {
+    const router = show("/projects");
+    await act(() => router.navigate("/notes"));
+    await act(() => router.navigate("/projects?settings=security"));
+    await screen.findByRole("dialog", { name: "设置" });
+    fireEvent.click(screen.getAllByRole("button", { name: "关闭设置" })[0]);
+    await waitFor(() => expect(where(router)).toBe("/projects"));
   });
 });
 

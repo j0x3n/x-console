@@ -18,17 +18,26 @@ export default function SettingsHost() {
   const seenPage = useRef(false);
   const wasOpen = useRef(false);
   const pushed = useRef(false);
+  const pageBeforeOpen = useRef("");
 
   useEffect(() => {
     rememberPage(location.pathname, location.search);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
+    const plain = new URLSearchParams(location.search);
+    plain.delete(SETTINGS_PARAM);
+    plain.delete("section");
+    const address = location.pathname + (plain.size ? `?${plain}` : "");
     if (open && !wasOpen.current)
-      pushed.current = seenPage.current && navigationType === "PUSH";
+      pushed.current =
+        seenPage.current &&
+        navigationType === "PUSH" &&
+        pageBeforeOpen.current === address;
+    if (!open) pageBeforeOpen.current = address;
     wasOpen.current = open;
     if (!location.pathname.startsWith("/settings")) seenPage.current = true;
-  }, [open, navigationType, location.pathname]);
+  }, [open, navigationType, location.pathname, location.search]);
 
   if (!open) return null;
 
