@@ -78,6 +78,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { EditorView } from "@codemirror/view";
 import { routes } from "./routes";
+import { useUploads } from "./upload";
 
 // jsdom 没有 Range 的布局接口，CodeMirror 量光标位置时会用到。
 Range.prototype.getClientRects = () =>
@@ -273,6 +274,53 @@ describe("DrivePage", () => {
     expect(router.state.location.search).toBe(
       "?view=remote&remote=7&ref=%E7%85%A7%E7%89%87",
     );
+    let request:
+      | {
+          upload: { onprogress?: (event: { loaded: number }) => void };
+          onload?: () => void;
+          status: number;
+          open: ReturnType<typeof vi.fn>;
+          send: ReturnType<typeof vi.fn>;
+        }
+      | undefined;
+    class Xhr {
+      upload = {};
+      status = 200;
+      open = vi.fn();
+      send = vi.fn();
+      setRequestHeader = vi.fn();
+      constructor() {
+        request = this;
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", Xhr);
+    try {
+      const file = new File(["hello"], "new.txt");
+      const transfer = { types: ["Files"], files: [file] };
+      fireEvent.dragEnter(window, { dataTransfer: transfer });
+      expect(screen.getByText("松开上传到“照片”")).toBeTruthy();
+      fireEvent.drop(window, { dataTransfer: transfer });
+      expect(screen.queryByText("松开上传到“照片”")).toBeNull();
+      expect(request!.open).toHaveBeenCalledWith(
+        "PUT",
+        "/api/v1/storage/remotes/7/content?parent=%E7%85%A7%E7%89%87&name=new.txt",
+      );
+      expect(request!.send).toHaveBeenCalledWith(file);
+      request!.upload.onprogress?.({ loaded: 3 });
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole("progressbar", { name: "new.txt" })
+            .getAttribute("aria-valuenow"),
+        ).toBe("60"),
+      );
+      request!.onload?.();
+      await waitFor(() => expect(screen.getByText("上传完成")).toBeTruthy());
+    } finally {
+      request?.onload?.();
+      useUploads.getState().clearFinished();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("uploads picked files to the current folder", async () => {

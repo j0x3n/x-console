@@ -16,10 +16,12 @@ export interface UploadTask {
   error?: string;
 }
 
-interface Target {
-  parent: number | null;
-  hidden: boolean;
-}
+type Target =
+  | {
+      parent: number | null;
+      hidden: boolean;
+    }
+  | { remoteId: number; parent: string };
 
 interface UploadStore {
   tasks: UploadTask[];
@@ -88,7 +90,11 @@ export const useUploads = create<UploadStore>()((set, get) => {
   };
 });
 
-export function uploadUrl(target: Target) {
+export function uploadUrl(target: Target, name = "") {
+  if ("remoteId" in target) {
+    const query = new URLSearchParams({ parent: target.parent, name });
+    return `${API_BASE}/storage/remotes/${target.remoteId}/content?${query}`;
+  }
   const q = new URLSearchParams();
   if (target.parent != null) q.set("parent", String(target.parent));
   if (target.hidden) q.set("hidden", "true");
@@ -103,10 +109,11 @@ function send(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", uploadUrl(target));
+    const remote = "remoteId" in target;
+    xhr.open(remote ? "PUT" : "POST", uploadUrl(target, file.name));
     xhr.withCredentials = true;
     xhr.setRequestHeader("X-Requested-With", "x-console");
-    xhr.upload.onprogress = (e) => onProgress(e.loaded);
+    xhr.upload.onprogress = (e) => onProgress(Math.min(file.size, e.loaded));
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
       let message = xhr.statusText || `HTTP ${xhr.status}`;
@@ -118,8 +125,13 @@ function send(
       reject(new Error(message));
     };
     xhr.onerror = () => reject(new Error("网络错误，上传失败"));
-    const form = new FormData();
-    form.append("file", file, file.name);
-    xhr.send(form);
+    if (remote) {
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.send(file);
+    } else {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      xhr.send(form);
+    }
   });
 }

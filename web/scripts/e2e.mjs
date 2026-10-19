@@ -3298,6 +3298,21 @@ try {
     await page.getByRole("button", { name: "docs", exact: true }).click();
     await page.getByText("hello.txt").first().waitFor();
 
+    setStage("B251 外部网盘拖入提示和上传队列");
+    await page.evaluate(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(["remote upload"], "upload-progress.txt", { type: "text/plain" }));
+      window.dispatchEvent(new DragEvent("dragenter", { dataTransfer: transfer, bubbles: true }));
+    });
+    await page.locator(".drive-drop").getByText(/松开上传到/).waitFor();
+    await page.evaluate(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(["remote upload"], "upload-progress.txt", { type: "text/plain" }));
+      window.dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    });
+    await page.locator(".drive-uploads li.done").filter({ hasText: "upload-progress.txt" }).waitFor();
+    await page.getByRole("button", { name: "upload-progress.txt", exact: true }).waitFor();
+
     setStage("B156 外部网盘预览、编辑、新建文件夹和浏览方式");
     await page.getByRole("button", { name: "hello.txt", exact: true }).click();
     await dialog("hello.txt")

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRight,
   Cloud,
@@ -21,7 +22,7 @@ import { withElevation } from "../../../auth/elevation";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import { formatBytes, relativeTime } from "../../../lib/time";
-import { storageApi } from "../../storage/api";
+import { remoteKeys, storageApi } from "../../storage/api";
 import {
   remoteDownloadUrl,
   useRemoteItems,
@@ -36,6 +37,7 @@ import type { FileSource } from "../viewer/source";
 import NameDialog from "./NameDialog";
 import FileIcon from "./FileIcon";
 import SortHeader from "./SortHeader";
+import { useUploads } from "../upload";
 
 /** 外部网盘使用云盘的列表、网格、文件查看器和名称弹窗。 */
 export default function RemoteView({
@@ -54,6 +56,8 @@ export default function RemoteView({
   const t = useT();
   const language = useLanguage();
   const items = useRemoteItems(drive.id, folder);
+  const queryClient = useQueryClient();
+  const [dragging, setDragging] = useState(false);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>({ key: "name", desc: false });
   const [dialog, setDialog] = useState<"folder" | RemoteDriveEntry | null>(
@@ -69,6 +73,7 @@ export default function RemoteView({
     setQ("");
     setViewer(null);
     setDialog(null);
+    setDragging(false);
   }, [drive.id, folder]);
   const entries = items.data?.items ?? [];
   const makeItem = (entry: RemoteDriveEntry): DriveItem => {
@@ -164,18 +169,57 @@ export default function RemoteView({
             }),
           ),
     );
-  const upload = (files: File[]) =>
-    void run(async () => {
-      for (const file of files) {
-        await apiFetch(
-          `/storage/remotes/${drive.id}/content?parent=${encodeURIComponent(folder)}&name=${encodeURIComponent(file.name)}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/octet-stream" },
-            body: file,
-          },
-        );
+  const addUploads = useUploads((s) => s.add);
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (event: DragEvent) =>
+      Array.from(event.dataTransfer?.types ?? []).includes("Files");
+    const enter = (event: DragEvent) => {
+      if (hasFiles(event)) {
+        depth++;
+        setDragging(true);
       }
+    };
+    const leave = (event: DragEvent) => {
+      if (hasFiles(event) && --depth <= 0) {
+        depth = 0;
+        setDragging(false);
+      }
+    };
+    const over = (event: DragEvent) => {
+      if (hasFiles(event)) event.preventDefault();
+    };
+    const drop = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      depth = 0;
+      setDragging(false);
+      addUploads(
+        Array.from(event.dataTransfer?.files ?? []),
+        { remoteId: drive.id, parent: folder },
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: remoteKeys.items(drive.id, folder),
+          });
+        },
+      );
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("dragover", over);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("drop", drop);
+    };
+  }, [drive.id, folder, addUploads, queryClient]);
+  const upload = (files: File[]) =>
+    addUploads(files, { remoteId: drive.id, parent: folder }, () => {
+      void queryClient.invalidateQueries({
+        queryKey: remoteKeys.items(drive.id, folder),
+      });
     });
   const open = (entry: RemoteDriveEntry, edit = false) =>
     entry.isDir
@@ -276,19 +320,7 @@ export default function RemoteView({
             到设置 → 存储重新授权，就能浏览和修改网盘里的全部文件。
           </p>
         )}
-      <section
-        className="drive-body"
-        aria-label={drive.name}
-        onDragOver={(event) => {
-          if (event.dataTransfer.types.includes("Files"))
-            event.preventDefault();
-        }}
-        onDrop={(event) => {
-          if (!event.dataTransfer.files.length) return;
-          event.preventDefault();
-          upload(Array.from(event.dataTransfer.files));
-        }}
-      >
+      <section className="drive-body" aria-label={drive.name}>
         {items.isPending ? (
           <Loading />
         ) : items.isError ? (
@@ -437,6 +469,14 @@ export default function RemoteView({
           </div>
         )}
       </section>
+      {dragging && (
+        <div className="drive-drop" aria-hidden>
+          <Upload size={28} />
+          <strong>
+            松开上传到“{items.data?.trail.at(-1)?.name ?? drive.name}”
+          </strong>
+        </div>
+      )}
       {dialog && (
         <NameDialog
           key={dialog === "folder" ? "new" : dialog.ref}
