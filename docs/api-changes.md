@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B254（2026-10-19）：仅修改基础包 `core/agentdist_test.go` 的测试时间，使用 UTC 构造过期配对码，以兼容 Windows 东八区环境。不改生产代码、API 或数据库。
+
 - B250（2026-10-19）：XC-57 合并左栏入口，需要调整公共导航 `app/nav.ts`、`components/layout/` 和 `styles/nav.css`。增加入口名称和图标覆盖，默认固定 11 个入口。旧 `navPins` 按 `entryOf` 映射并去重，保留顺序和分隔线。只在用户调整固定项时保存新列表，不主动重写后端偏好。个人组超过 5 个可见功能时显示两列。合并组的角标、动态图标和状态组件按来源模块设置 key，避免延迟注册导致 Hook 数量变化。页面地址、API 字段和后端校验保持不变，不加迁移。
 
 - B246（2026-10-17）：公共组件 `components/markdown/Markdown` 的 `snapshot` 加可选的 `tables: "cards" | "wide"`。为 `cards` 时，4 列及以上的表格画成卡片（`.xc-md-cards` > `dl.xc-md-card`，第一列是 `.xc-md-card-head`），`markdown.css` 加了卡片样式。不传时和原来一样。不改接口。

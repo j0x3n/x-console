@@ -4,25 +4,26 @@
 //       node scripts/font-tokens.mjs --check  （只检查，有写死的像素就失败，CI 用）
 import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../src/", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../src/", import.meta.url));
 // 桌面像素 → 令牌名。小于 9px 的是图标里的小圆点之类，20px 以上是大标题，都保留像素。
 export const TOKENS = {
-  "9": "--fs-9",
-  "10": "--fs-10",
-  "10.5": "--fs-10-5",
-  "11": "--fs-11",
-  "11.5": "--fs-11-5",
-  "12": "--fs-12",
-  "12.5": "--fs-12-5",
-  "13": "--fs-13",
-  "13.5": "--fs-13-5",
-  "14": "--fs-14",
-  "15": "--fs-15",
-  "16": "--fs-16",
-  "17": "--fs-17",
-  "18": "--fs-18",
-  "19": "--fs-19",
+  9: "--fs-9",
+  10: "--fs-10",
+  10.5: "--fs-10-5",
+  11: "--fs-11",
+  11.5: "--fs-11-5",
+  12: "--fs-12",
+  12.5: "--fs-12-5",
+  13: "--fs-13",
+  13.5: "--fs-13-5",
+  14: "--fs-14",
+  15: "--fs-15",
+  16: "--fs-16",
+  17: "--fs-17",
+  18: "--fs-18",
+  19: "--fs-19",
 };
 // 令牌的定义文件和测试开关样式本身不检查。
 const SKIP = new Set(["styles/tokens.css"]);
@@ -40,7 +41,7 @@ const check = process.argv.includes("--check");
 const stats = {};
 const offenders = [];
 for (const file of walk(root)) {
-  const rel = relative(root, file);
+  const rel = relative(root, file).replaceAll("\\", "/");
   if (SKIP.has(rel)) continue;
   const text = readFileSync(file, "utf8");
   const next = text.replace(

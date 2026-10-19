@@ -108,7 +108,7 @@ func TestInstallRejectsBadCodes(t *testing.T) {
 	// An expired code.
 	expired := "ABCD-2345"
 	if _, err := env.App.Deps.DB.Exec(`INSERT INTO pairing_codes (code_hash, name, kind, expires_at) VALUES (?, 'old', 'server', ?)`,
-		secrets.Hash("ABCD2345"), time.Now().Add(-time.Minute)); err != nil {
+		secrets.Hash("ABCD2345"), time.Now().UTC().Add(-time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	bad := []string{"", "nonsense", "AAAA-BBBB", expired, "x'; rm -rf /", "%0A%0A", strings.Repeat("A", 500)}
