@@ -315,7 +315,9 @@ describe("邮件分拣与设置入口（B256）", () => {
     setup();
     renderAt("/mail");
     const link = await screen.findByRole("link", { name: "分拣设置" });
-    expect(link.getAttribute("href")).toBe("/settings/mail?section=mail-sorting");
+    expect(link.getAttribute("href")).toBe(
+      "/settings/mail?section=mail-sorting",
+    );
   });
 
   it("邮箱设置页显示分拣设置并能修改保存", async () => {
@@ -333,7 +335,9 @@ describe("邮件分拣与设置入口（B256）", () => {
       status: 200,
       body: [],
     }));
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     render(
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={["/settings/mail"]}>

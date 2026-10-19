@@ -592,6 +592,8 @@ export function countedMonitors(monitors: Monitor[]): Monitor[] {
   return monitors.filter(
     (m) =>
       m.enabled &&
-      (m.kind === "http" || !m.target || !paused.has(registrableDomain(m.target))),
+      (m.kind === "http" ||
+        !m.target ||
+        !paused.has(registrableDomain(m.target))),
   );
 }
