@@ -77,9 +77,17 @@ describe("settings dialog (B180)", () => {
     const router = show("/notes?id=5");
     await screen.findByText("notes page");
     await act(() => router.navigate("/settings/linear"));
-    expect(where(router)).toBe("/notes?id=5&settings=git");
+    // XC-69：Linear 已拆成独立设置项。
+    expect(where(router)).toBe("/notes?id=5&settings=linear");
     expect(await screen.findByRole("dialog", { name: "设置" })).toBeTruthy();
     expect(screen.getByText("notes page")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { current: "page" }).textContent,
+    ).toContain("Linear");
+    expect(screen.queryByRole("heading", { name: "Git 账号" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Git 与仓库$/ }));
+    await waitFor(() => expect(where(router)).toBe("/notes?id=5&settings=git"));
+    expect(screen.queryByRole("heading", { name: "Linear" })).toBeNull();
   });
 
   it("switches tabs without new history and closes with Esc", async () => {

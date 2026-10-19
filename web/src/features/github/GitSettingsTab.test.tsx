@@ -103,15 +103,17 @@ afterEach(() => {
 });
 
 describe("Git 与 GitHub 设置（B62）", () => {
-  it("B248: settings keep accounts and notifications, and link to the repositories page", async () => {
+  it("XC-69 设置只保留账号和通知，不再显示关注仓库区块", async () => {
     withAccounts();
     api.routes.set("GET /github/config", () => ({ status: 200, body: config }));
     renderTab();
     await screen.findByText("家里");
     expect(screen.queryByText("同步状态")).toBeNull();
     expect(screen.queryByLabelText("用哪个 GitHub 账号")).toBeNull();
-    const link = screen.getByRole("link", { name: "管理仓库" });
-    expect(link.getAttribute("href")).toBe("/github?manage=1");
+    expect(screen.queryByRole("link", { name: "管理仓库" })).toBeNull();
+    expect(screen.queryByText("关注的仓库")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Git 账号" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "仓库通知" })).toBeTruthy();
   });
 
   it("only offers GitHub accounts when picking repositories", async () => {

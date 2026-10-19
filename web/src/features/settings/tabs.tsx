@@ -82,15 +82,6 @@ function AiWithUsage() {
   );
 }
 
-function GitWithLinear() {
-  return (
-    <div className="settings-stack">
-      <GitSettingsTab />
-      <LinearSettingsTab />
-    </div>
-  );
-}
-
 function MaintenanceWithErrors() {
   return (
     <div className="settings-stack">
@@ -171,7 +162,14 @@ export const settingsTabs: SettingsTab[] = [
     label: "Git & repositories",
     icon: GitBranch,
     group: "integrations",
-    component: GitWithLinear,
+    component: GitSettingsTab,
+  },
+  {
+    id: "linear",
+    label: "Linear",
+    icon: GitBranch,
+    group: "integrations",
+    component: LinearSettingsTab,
   },
   {
     id: "homeassistant",

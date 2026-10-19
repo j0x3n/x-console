@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { KeyRound, Plus, RefreshCw, Trash2, Webhook } from "lucide-react";
 import { errorMessage, isNotLive } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -31,22 +30,10 @@ import "./github.css";
  */
 export default function GitSettingsTab() {
   // B248：这里只留账号和通知。关注哪些仓库、同步状态、CI 分钟数在仓库页的“管理仓库”里。
-  const t = useT();
   return (
     <div className="settings-grid">
       <AccountsCard />
       <NotifyCard />
-      <section className="xc-card">
-        <div className="settings-line">
-          <div>
-            <strong>{t("Watched repositories")}</strong>
-            <small>{t("Pick repositories on the repositories page.")}</small>
-          </div>
-          <Link className="xc-btn small" to="/github?manage=1">
-            {t("Manage repositories")}
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }

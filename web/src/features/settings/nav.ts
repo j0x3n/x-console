@@ -9,7 +9,6 @@ export const SETTINGS_PARAM = "settings";
 // 合并掉的标签，旧地址跳到合并后的那一页。
 const aliases: Record<string, string> = {
   github: "git",
-  linear: "git",
   "ai-usage": "assistant",
   errors: "maintenance",
 };
