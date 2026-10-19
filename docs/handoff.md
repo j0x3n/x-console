@@ -2,15 +2,30 @@
 
 正在做的一批任务有交接状态时写在这里。批次做完后把内容挪到 `docs/archive/`，这里只留下面的环境提示。
 
+## 2026-10-19 暂停交接：B216 只完成方案
+
+- 用户要求先暂停，推送已完成内容并保存交接。B216 尚未实现，没有启动 Codex 编码任务，也没有新增测试、迁移或本地服务。只读探索代理已结束，没有本会话启动的编码 AI 在后台运行。
+- 最新需求已更新到 `docs/specs/B216.md` 和 `docs/tasks.md`：加密保存 Apple ID 账号、密码、Cookie 和本地存储。登录失效后自动登录，遇到验证码或设备确认时暂停并通知用户。用户提供验证码或通过接管完成验证后继续。旧规格“不存密码”已取消。仍只读同步，不写回 iCloud。
+- 不再等待 7 天登录保持验证。真实 iCloud 登录表单、页面结构和数据接口尚未确认，`docs/qa/B216-探路.md` 尚未创建。不能把模拟测试当成真实可用。
+- 接手先读 `docs/tasks.md`、`docs/specs/B216.md`、`docs/03-backend.md`、`docs/05-frontend.md`、`docs/07-design.md`。界面沿用项目 Clean 设计。
+- 实施建议：先定接口并补公共基础，再做同步和界面。代码按 AGENTS.md 交给 GPT-6.1-sol high；本地可用 `~/.claude/scripts/codex.sh`。直接在 develop 开发，不新建分支。当前需求只做交接，不继续实现或部署。
+- 关键复用：`backend/internal/server/browser/session.go` 的 `Open`、`SaveState`，`takeover.go` 的 `Screencast`、`Send`；`modules/watchers/live.go` 和 `runner.go` 的接管机制；`modules/watchers/replay.go` 的登录字段填充。Cookie 和本地存储现有机制可以加密保存，但目前只采集顶层页面的 localStorage，跨域 frame 状态仍需补齐。
+- 浏览器缺口：`browser/page.js` 只读取同源 frame；网络监听只计数，没有响应正文读取接口；允许域名目前只检查顶层导航，B216 需要在请求发出前约束子资源和重定向。同步只提供声明式读取，不执行模型给出的脚本。
+- 笔记缺口：`contracts.Notes` 只有 Create，需新增独立导入快照契约。notes 尚无来源只读和回收站，需在服务端覆盖更新、追加、删除、附件、分享编辑等写入口。导入笔记跳过 `modules/notes/ai.go` 的自动 AI 处理，避免正文发送给模型；同时检查知识库等间接出口。前端 `features/notes/components/NoteEditor.tsx` 的阅读模式仍可编辑，不能当作只读保护。
+- 提醒复用：`contracts.ReminderSource` 注册 `reminders.sources.icloud`，从 iCloud 缓存提供数据，不创建本地提醒，避免重复通知。当前契约缺所属列表及无到期日表示，完成事项也没有独立查询支持，需向后兼容扩展。前端复用 `features/reminders/RemindersPage.tsx` 的 `ExternalRow`。
+- 同步先验证完整快照。骤减、标题异常或分页不完整时不落库。建议由同步协调器通过同一 SQLite 事务调用 notes 导入契约并更新 iCloud 缓存，提交后再发事件。修读法只向 AI 提供白名单结构及标题，不给正文、密码、Cookie 或验证码。
+- 自动代码修复可用 `contracts.Coding.Launch` 与 `CodingControl`。自动开 PR 除 `OpenPR` 外还要配置有效 `AIAgentID`。问题指纹持久化去重，不自动合并或部署。
+- 当前工作区另有 5 个未提交文件，不是本会话写的，完成状态未核实，未混入本次文档提交：`api/modules/aiagents.yaml`、`backend/internal/server/modules/aiagents/decisions.go`、`backend/internal/server/modules/aiagents/runs.go`、`web/src/features/aiagents/DecisionRows.tsx`、`web/src/features/aiagents/api.ts`。接手前先核对归属和当前 diff，不覆盖、不当作 B216 成果。
+
 ## 2026-10-19 部署交接：B250 到 B254
 
-- 用户已要求推送并部署 B251～B254，B250 随本批上线。部署由 B254 提交的部署标记触发，最终结果以 GitHub Actions 为准。
-- B251：`70fa2b6`；B252：`3a94d5a`；B253：`41d5c19`；B254 为本记录所在提交。
+- B250～B254 已推送并部署成功。GitHub Actions 的全部测试、镜像、代理产物和服务器 deploy 步骤均为 success：[部署记录](https://github.com/j0x3n/x-console/actions/runs/39266554204)。用户负责线上功能验证，本会话没有额外启动服务或手动验收。
+- B250：`b742e066`；B251：`70fa2b6`；B252：`3a94d5a`；B253：`41d5c19`；B254：`01ca2a22`。
 - 用户明确负责验证，后续部署不再额外做本地测试、截图或编码 AI 审查。约定已写入 AGENTS.md，现有 CI 保留。
 - 快速检查已在新要求到达前通过：后端 build、core 的 vet/test、前端类型和格式检查、相关 67 条测试。浅色云盘和 Git 设置截图脚本完成，不作为用户验收结论。
 - Codex 只读审查已按用户要求停止。运行记录 `~/.claude/codex-runs/20261019-220539/`，会话 `01a1547b-75ec-7312-a64c-7634c946dc41`，不需要继续。
 - 本次临时启动的 8092 后端与 5175 前端已停止。B254 修复本机字号路径和配对码测试 UTC 时间，旧环境提示见下文历史记录。
-- B216 按用户要求跳过登录保持验证，仍待开发。接下来先读 `docs/tasks.md`、`docs/specs/B216.md`，再读相关开发约定。不要把 B216 记成已经实现。
+- B216 按用户要求跳过登录保持验证，仍待开发。最新的自动登录需求和暂停状态见本文最上方。不要把 B216 记成已经实现。
 - 下文 B248 未部署的描述属于旧记录，B248 已随 B249 的成功部署上线。
 
 ## 2026-10-18 这批：X Console 看板 XC-56 到 XC-66
