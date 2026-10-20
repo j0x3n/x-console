@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SyntheticEvent } from "react";
+import type { ComponentProps, ReactNode, SyntheticEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   LayoutGrid,
@@ -25,8 +25,10 @@ import {
 import { useNavChildren } from "../../lib/navChildren";
 import {
   badgeLabel,
+  combineBadges,
   useNavExtras,
   type NavAction,
+  type NavBadge,
   type NavBadgeHook,
   type NavIconHook,
   type NavStatusHook,
@@ -55,10 +57,17 @@ function entryTarget(entry: NavEntry, pathname: string): string {
   return lastPathFor(member.path, pathname);
 }
 
-/** 组里第一个登记了这种标记（数量、状态、图标）的功能。 */
+/** 组里第一个登记了这种标记（状态、图标）的功能。 */
 function extraKey(entry: NavEntry, map: Record<string, unknown>) {
   return entry.members.map((m) => m.path).find((p) => map[p]);
 }
+
+/** 组里所有登记了数字的功能。合并入口的数字是它们相加（B256）。 */
+function badgeKeys(entry: NavEntry, map: Record<string, unknown>) {
+  return entry.members.map((m) => m.path).filter((p) => map[p]);
+}
+
+const noBadge: NavBadgeHook = () => null;
 
 /** 图标栏会滚动，提示是 fixed 定位，悬停或聚焦时把图标中线的纵坐标告诉它。 */
 function placeTip(event: SyntheticEvent<HTMLElement>) {
@@ -164,7 +173,7 @@ export default function Sidebar({
               selected={currentPath === "/"}
               keys={{
                 icon: extras.icons["/"] ? "/" : undefined,
-                badge: extras.badges["/"] ? "/" : undefined,
+                badges: extras.badges["/"] ? ["/"] : [],
                 status: extras.statuses["/"] ? "/" : undefined,
               }}
               extras={extras}
@@ -188,7 +197,7 @@ export default function Sidebar({
                   selected={entry.path === currentEntry}
                   keys={{
                     icon: extraKey(entry, extras.icons),
-                    badge: extraKey(entry, extras.badges),
+                    badges: badgeKeys(entry, extras.badges),
                     status: extraKey(entry, extras.statuses),
                   }}
                   extras={extras}
@@ -260,7 +269,10 @@ export default function Sidebar({
   );
 }
 
-/** 图标栏里的一个入口。keys 是数量、状态、图标这些标记用哪个功能登记的（合并组用组里第一个有的）。 */
+/**
+ * 图标栏里的一个入口。keys 是数量、状态、图标这些标记用哪个功能登记的。
+ * 合并组的数字是组里所有功能相加，状态和图标用组里第一个有的。
+ */
 function RailLink({
   to,
   label,
@@ -274,37 +286,71 @@ function RailLink({
   label: string;
   icon: LucideIcon;
   selected: boolean;
-  keys: { icon?: string; badge?: string; status?: string };
+  keys: { icon?: string; badges: string[]; status?: string };
   extras: ReturnType<typeof useNavExtras>;
   onClose: () => void;
 }) {
   const t = useT();
+  const navigate = useNavigate();
+  const location = useLocation();
   const iconHook = keys.icon ? extras.icons[keys.icon] : undefined;
-  const badgeHook = keys.badge ? extras.badges[keys.badge] : undefined;
   const statusHook = keys.status ? extras.statuses[keys.status] : undefined;
+  const badgeHooks = keys.badges.map((path) => ({
+    path,
+    hook: extras.badges[path],
+  }));
   return (
-    <NavLink
-      to={to}
-      aria-label={t(label)}
-      onClick={onClose}
-      className={`nav-rail-item${selected ? " selected" : ""}`}
-    >
-      {iconHook ? (
-        <NavIconMark key={keys.icon} hook={iconHook} fallback={Icon} />
-      ) : (
-        <Icon size={18} strokeWidth={1.6} />
+    // 登记的数字 Hook 变了要换一个组件，Hook 数量不能变
+    <NavBadgeScope key={keys.badges.join(",")} hooks={badgeHooks}>
+      {(badge) => (
+        <NavLink
+          to={to}
+          aria-label={t(label)}
+          onClick={(event) => {
+            // B256：已经在这个入口里，再点一次跳到数字对应的地方
+            const here = location.pathname + location.search;
+            if (selected && badge?.to && badge.to !== here) {
+              event.preventDefault();
+              navigate(badge.to);
+            }
+            onClose();
+          }}
+          className={`nav-rail-item${selected ? " selected" : ""}`}
+        >
+          {iconHook ? (
+            <NavIconMark key={keys.icon} hook={iconHook} fallback={Icon} />
+          ) : (
+            <Icon size={18} strokeWidth={1.6} />
+          )}
+          {keys.badges.length > 0 ? (
+            <NavBadgeMark badge={badge} />
+          ) : (
+            statusHook && <NavStatusDot key={keys.status} hook={statusHook} />
+          )}
+          <span className="nav-rail-tip">
+            {t(label)}
+            {statusHook && (
+              <NavStatusText key={keys.status} hook={statusHook} />
+            )}
+          </span>
+        </NavLink>
       )}
-      {badgeHook ? (
-        <NavBadgeMark key={keys.badge} hook={badgeHook} />
-      ) : (
-        statusHook && <NavStatusDot key={keys.status} hook={statusHook} />
-      )}
-      <span className="nav-rail-tip">
-        {t(label)}
-        {statusHook && <NavStatusText key={keys.status} hook={statusHook} />}
-      </span>
-    </NavLink>
+    </NavBadgeScope>
   );
+}
+
+/** 调用组里每个功能登记的数字 Hook 再相加。单独一个组件，Hook 顺序固定。 */
+function NavBadgeScope({
+  hooks,
+  children,
+}: {
+  hooks: { path: string; hook: NavBadgeHook }[];
+  children: (badge: NavBadge | null) => ReactNode;
+}) {
+  const badge = combineBadges(
+    hooks.map(({ path, hook }) => ({ path, badge: hook() })),
+  );
+  return children(badge);
 }
 
 /**
@@ -349,14 +395,17 @@ function MergedNavPanel({ onNavigate }: { onNavigate: () => void }) {
       (navMerges[entry] ?? []).includes(n.path) &&
       modules.has(moduleOfPath(n.path)),
   );
+  const extras = useNavExtras();
   const Inner = currentPath ? children[currentPath] : undefined;
   return (
     <>
       <div className={`nav-merge${members.length > 5 ? " two-columns" : ""}`}>
         <NavPanelGroup>
           {members.map((m) => (
-            <NavPanelLink
-              key={m.path}
+            <MergeMemberLink
+              // 登记了数字以后要换一个组件，Hook 数量不能变
+              key={`${m.path}${extras.badges[m.path] ? ":badge" : ""}`}
+              hook={extras.badges[m.path] ?? noBadge}
               to={lastPathFor(m.path, location.pathname)}
               icon={m.icon}
               label={t(m.label)}
@@ -371,9 +420,27 @@ function MergedNavPanel({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
-/** 图标右上角的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */
-function NavBadgeMark({ hook }: { hook: NavBadgeHook }) {
+/** 合并组二级菜单里的一个功能，后面跟着它自己的数字，看得出图标上的数字是谁的（B256）。 */
+function MergeMemberLink({
+  hook,
+  ...link
+}: { hook: NavBadgeHook } & Omit<
+  ComponentProps<typeof NavPanelLink>,
+  "count" | "danger"
+>) {
   const badge = hook();
+  const count = badge && badge.count > 0 ? badge.count : null;
+  return (
+    <NavPanelLink
+      {...link}
+      count={count}
+      danger={(badge?.tone ?? "danger") === "danger"}
+    />
+  );
+}
+
+/** 图标右上角的数量（B76）。 */
+function NavBadgeMark({ badge }: { badge: NavBadge | null }) {
   if (!badge || badge.count <= 0) return null;
   const label = badgeLabel(badge.count);
   return (

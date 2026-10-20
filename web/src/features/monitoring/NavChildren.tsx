@@ -15,32 +15,26 @@ import {
 } from "../../components/layout/NavPanel";
 import { useT } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
-import { useMonitors, useScripts, useSubscriptions } from "./api";
-import { countedMonitors, monitorTone } from "./lib";
-import { useQuotaAccounts } from "../quotas/api";
-import { useWatchers } from "../watchers/api";
+import { useScripts } from "./api";
+import { useMonitoringAttention } from "./badge";
+import { monitorTone } from "./lib";
 
 /**
  * 左栏“监控”的二级菜单（用户 2026-10-05 要求）：网站、证书与域名、脚本、订阅，
  * 下面列出每个网站监控，点了打开详情。监控页不再放自己的页签。
- * 网站和证书的数量是故障数，红色；脚本和订阅是总数。
+ * 红字和左栏图标的数字是同一套规则（B256）：网站是故障数，证书是故障加 7 天内到期，
+ * 订阅有 3 天内续费的时候显示要续费的个数，没有就显示总数。脚本是总数。
  */
 export default function MonitoringNavChildren({
   onNavigate,
 }: NavChildrenProps) {
   const t = useT();
   const location = useLocation();
-  const monitors = useMonitors();
   const scripts = useScripts();
-  const subs = useSubscriptions(false);
-  const quotas = useQuotaAccounts();
-  const watchers = useWatchers();
-  const list = monitors.data ?? [];
-  const down = countedMonitors(list).filter((m) => m.lastStatus === "down");
-  const sites = list.filter((m) => m.kind === "http");
-  // 只在有故障时显示红色数字
-  const downSites = down.filter((m) => m.kind === "http").length;
-  const downCerts = down.length - downSites;
+  const attention = useMonitoringAttention();
+  const { monitors, subs } = attention;
+  const sites = (monitors.data ?? []).filter((m) => m.kind === "http");
+  const renewing = attention.renewing.length;
   const tab = location.pathname.startsWith("/monitoring/")
     ? location.pathname.slice("/monitoring/".length)
     : location.pathname === "/monitoring"
@@ -54,7 +48,7 @@ export default function MonitoringNavChildren({
           to="/monitoring"
           icon={Globe}
           label={t("Websites")}
-          count={downSites || null}
+          count={attention.downSites.length || null}
           danger
           active={tab === "" && !openId}
           onNavigate={onNavigate}
@@ -63,7 +57,7 @@ export default function MonitoringNavChildren({
           to="/monitoring/certs"
           icon={ShieldCheck}
           label={t("Certificates & domains")}
-          count={downCerts || null}
+          count={attention.certs.length || null}
           danger
           active={tab === "certs"}
           onNavigate={onNavigate}
@@ -80,7 +74,8 @@ export default function MonitoringNavChildren({
           to="/monitoring/subscriptions"
           icon={Receipt}
           label={t("Subscriptions")}
-          count={subs.data?.length || null}
+          count={renewing || subs.data?.length || null}
+          danger={renewing > 0}
           active={tab === "subscriptions"}
           onNavigate={onNavigate}
         />
@@ -89,10 +84,7 @@ export default function MonitoringNavChildren({
           to="/monitoring/quotas"
           icon={Gauge}
           label={t("AI quotas")}
-          count={
-            (quotas.data ?? []).filter((a) => a.status === "error").length ||
-            null
-          }
+          count={attention.quotaErrors.length || null}
           danger
           active={tab === "quotas"}
           onNavigate={onNavigate}
@@ -102,11 +94,7 @@ export default function MonitoringNavChildren({
           to="/monitoring/watchers"
           icon={ScanEye}
           label={t("Web watchers")}
-          count={
-            (watchers.data ?? []).filter(
-              (w) => w.status === "waiting" || w.status === "login",
-            ).length || null
-          }
+          count={attention.watchersWaiting.length || null}
           danger
           active={tab !== null && tab.startsWith("watchers")}
           onNavigate={onNavigate}

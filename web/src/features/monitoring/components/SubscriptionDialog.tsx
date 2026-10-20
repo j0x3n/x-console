@@ -311,45 +311,44 @@ export default function SubscriptionDialog({
             </select>
           </div>
         </div>
-        <div className="monitoring-form-row">
-          <div className="xc-field">
-            <span>{t("Next renewal")}</span>
-            <div className="monitoring-renewal-fields">
-              <input
-                className="xc-input"
-                type="date"
-                aria-label={t("Next renewal")}
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-              />
-              <input
-                className="xc-input monitoring-time-input"
-                type="time"
-                aria-label={t("Renewal time (optional)")}
-                title={t("Renewal time (optional)")}
-                value={nextTime}
-                onChange={(e) => setNextTime(e.target.value)}
-              />
-            </div>
+        {/* 下次续费和提前提醒各占一行，并排时日期框被挤得看不全 */}
+        <div className="xc-field">
+          <span>{t("Next renewal")}</span>
+          <div className="monitoring-renewal-fields">
+            <input
+              className="xc-input"
+              type="date"
+              aria-label={t("Next renewal")}
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+            />
+            <input
+              className="xc-input monitoring-time-input"
+              type="time"
+              aria-label={t("Renewal time (optional)")}
+              title={t("Renewal time (optional)")}
+              value={nextTime}
+              onChange={(e) => setNextTime(e.target.value)}
+            />
           </div>
-          <div className="xc-field">
-            <span>{t("Remind before renewal")}</span>
-            <div className="monitoring-remind">
-              {[...remindChoices, ...extraRemind]
-                .sort((a, b) => a - b)
-                .map((day) => (
-                  <label key={day} className="xc-check">
-                    <input
-                      type="checkbox"
-                      checked={remind.includes(day)}
-                      onChange={() => toggleRemind(day)}
-                    />
-                    <span>
-                      {t("Ahead by")} {day} {t("days")}
-                    </span>
-                  </label>
-                ))}
-            </div>
+        </div>
+        <div className="xc-field">
+          <span>{t("Remind before renewal")}</span>
+          <div className="monitoring-remind">
+            {[...remindChoices, ...extraRemind]
+              .sort((a, b) => a - b)
+              .map((day) => (
+                <label key={day} className="xc-check">
+                  <input
+                    type="checkbox"
+                    checked={remind.includes(day)}
+                    onChange={() => toggleRemind(day)}
+                  />
+                  <span>
+                    {t("Ahead by")} {day} {t("days")}
+                  </span>
+                </label>
+              ))}
           </div>
         </div>
         <label className="monitoring-check">

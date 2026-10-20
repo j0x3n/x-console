@@ -665,6 +665,7 @@ button.monitoring-row:hover,
 .monitoring-renewal-fields {
   display: flex;
   gap: 8px;
+  max-width: 340px;
 }
 .monitoring-renewal-fields .xc-input {
   min-width: 0;

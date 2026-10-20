@@ -16,9 +16,33 @@ export interface NavBadge {
   tone?: "danger" | "warn";
   /** 鼠标悬停的说明，比如“3 封未读” */
   title: string;
+  /** 已经在这个入口时再点一次图标，跳到这里处理。不写就跳到登记的功能首页 */
+  to?: string;
 }
 
 export type NavBadgeHook = () => NavBadge | null;
+
+/**
+ * 合并入口的数字：组里每个功能的数字相加（B256）。
+ * 有一个是 danger 就用 danger。跳转地址用第一个有数字的功能的。
+ */
+export function combineBadges(
+  items: { path: string; badge: NavBadge | null }[],
+): NavBadge | null {
+  const shown = items.filter(
+    (x): x is { path: string; badge: NavBadge } =>
+      !!x.badge && x.badge.count > 0,
+  );
+  if (shown.length === 0) return null;
+  return {
+    count: shown.reduce((sum, x) => sum + x.badge.count, 0),
+    tone: shown.some((x) => (x.badge.tone ?? "danger") === "danger")
+      ? "danger"
+      : "warn",
+    title: shown.map((x) => x.badge.title).join("；"),
+    to: shown[0].badge.to ?? shown[0].path,
+  };
+}
 
 export interface NavAction {
   icon: ComponentType<{ size?: number }>;

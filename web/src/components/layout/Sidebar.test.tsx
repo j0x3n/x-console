@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { useState } from "react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import Sidebar, { useCurrentNavPanel } from "./Sidebar";
 import { registerNavBadge } from "../../lib/navBadges";
 import { usePreferencesStore } from "../../stores/preferences-store";
@@ -81,7 +81,44 @@ describe("XC-57 合并菜单", () => {
       );
       expect(screen.getByTitle("提醒数量").textContent).toBe("1");
       act(() => registerNavBadge("/calendar", useCalendarBadge));
-      expect(screen.getByTitle("日程数量").textContent).toBe("2");
+      // B256：合并入口的数字是组里相加
+      expect(screen.getByTitle("日程数量；提醒数量").textContent).toBe("3");
+    } finally {
+      cleanup();
+      usePreferencesStore.setState({ navPins: previous });
+    }
+  });
+
+  it("已经在入口里时再点一次图标，跳到数字对应的地方", () => {
+    const previous = usePreferencesStore.getState().navPins;
+    registerNavBadge("/monitoring", () => ({
+      count: 1,
+      title: "1 个订阅快续费",
+      to: "/monitoring/subscriptions",
+    }));
+    usePreferencesStore.setState({ navPins: ["/monitoring"] });
+    function Where() {
+      const location = useLocation();
+      return <output>{location.pathname}</output>;
+    }
+    try {
+      render(
+        <MemoryRouter initialEntries={["/credentials"]}>
+          <Sidebar
+            mobileOpen={false}
+            setMobileOpen={vi.fn()}
+            openPalette={vi.fn()}
+          />
+          <Where />
+        </MemoryRouter>,
+      );
+      // 二级菜单里看得出数字是监控的
+      const member = screen.getByRole("link", { name: /^监控/ });
+      expect(member.querySelector("small")?.textContent).toBe("1");
+      fireEvent.click(screen.getByRole("link", { name: "运维" }));
+      expect(screen.getByRole("status").textContent).toBe(
+        "/monitoring/subscriptions",
+      );
     } finally {
       cleanup();
       usePreferencesStore.setState({ navPins: previous });
@@ -110,7 +147,8 @@ describe("XC-57 合并菜单", () => {
     expect(screen.getAllByRole("link")).toHaveLength(4);
     expect(
       screen
-        .getByRole("link", { name: "提醒", exact: true })
+        // 前面的用例登记了提醒的数字，名字后面会跟着数字
+        .getByRole("link", { name: /^提醒\d*$/ })
         .getAttribute("aria-current"),
     ).toBe("page");
   });
