@@ -300,10 +300,7 @@ func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, s
 	changed := false
 	lastUID := acc.LastUid
 	if set != nil {
-		msgs, err := c.Fetch(set, &imap.FetchOptions{
-			UID: true, Flags: true, InternalDate: true, BodyStructure: &imap.FetchItemBodyStructure{Extended: true},
-			BodySection: []*imap.FetchItemBodySection{summaryHeaderSection()},
-		}).Collect()
+		msgs, err := fetchSummaries(c, set)
 		if err != nil {
 			return err
 		}
@@ -330,7 +327,7 @@ func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, s
 	}
 	flagsChanged, err := m.syncFlags(ctx, c, acc.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("核对邮件标记（UID FETCH FLAGS）: %w", err)
 	}
 	now := m.now().UTC()
 	if err := m.q.SetSyncState(ctx, db.SetSyncStateParams{UidValidity: acc.UidValidity, LastUid: lastUID, LastSyncAt: &now, ID: acc.ID}); err != nil {
@@ -412,7 +409,11 @@ func messageRow(accountID int64, b *imapclient.FetchMessageBuffer, snippet strin
 	row := db.InsertMessageParams{AccountID: accountID, Uid: int64(b.UID), Snippet: snippet}
 	row.Unread, row.Flagged = flagValues(b.Flags)
 	date := b.InternalDate
-	h := summaryHeader(b.FindBodySection(summaryHeaderSection()))
+	raw := b.FindBodySection(summaryHeaderSection())
+	if raw == nil {
+		raw = b.FindBodySection(fullHeaderSection())
+	}
+	h := summaryHeader(raw)
 	subject, _ := h.Subject()
 	row.Subject = cleanLine(subject)
 	row.MessageID, _ = h.MessageID()

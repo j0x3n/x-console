@@ -42,18 +42,21 @@ type fakeIMAP struct {
 	user *imapmemserver.User
 	tls  *tls.Config // what clients use to trust it
 
-	logins        atomic.Int32 // 登录过多少次，用来看有没有另开连接
-	lossy         atomic.Bool  // 设上以后 STORE 不保存任何状态
-	bodyFetches   atomic.Int32
-	failBodies    atomic.Bool
-	failEnvelope  atomic.Bool
-	failCopy      atomic.Bool
-	failCreate    atomic.Bool
-	creates       atomic.Int32
-	archiveFolder string // LIST 返回带有 \\Archive 的文件夹
-	allFolder     string // LIST 返回带有 \\All 的文件夹
-	bodyStarted   chan struct{}
-	bodyRelease   chan struct{}
+	logins             atomic.Int32 // 登录过多少次，用来看有没有另开连接
+	lossy              atomic.Bool  // 设上以后 STORE 不保存任何状态
+	bodyFetches        atomic.Int32
+	failBodies         atomic.Bool
+	failEnvelope       atomic.Bool
+	failHeaderFields   atomic.Bool
+	headerFieldFetches atomic.Int32
+	fullHeaderFetches  atomic.Int32
+	failCopy           atomic.Bool
+	failCreate         atomic.Bool
+	creates            atomic.Int32
+	archiveFolder      string // LIST 返回带有 \\Archive 的文件夹
+	allFolder          string // LIST 返回带有 \\All 的文件夹
+	bodyStarted        chan struct{}
+	bodyRelease        chan struct{}
 }
 
 // session is the fake server's session. In lossy mode STORE answers with the
@@ -105,6 +108,14 @@ func (s *session) Fetch(w *imapserver.FetchWriter, set imap.NumSet, options *ima
 		return &imap.Error{Type: imap.StatusResponseTypeBad, Text: "broken ENVELOPE"}
 	}
 	for _, section := range options.BodySection {
+		if len(section.HeaderFields) > 0 {
+			s.f.headerFieldFetches.Add(1)
+			if s.f.failHeaderFields.Load() {
+				return &imap.Error{Type: imap.StatusResponseTypeBad, Text: "invalid command or parameters"}
+			}
+		} else if section.Specifier == imap.PartSpecifierHeader {
+			s.f.fullHeaderFetches.Add(1)
+		}
 		if len(section.Part) == 0 && section.Partial != nil && section.Partial.Size > 2048 {
 			if s.f.bodyFetches.Add(1) == 1 && s.f.bodyStarted != nil {
 				close(s.f.bodyStarted)
@@ -384,6 +395,43 @@ func TestSyncContinuesWithoutEnvelope(t *testing.T) {
 	env.MustDo(http.MethodGet, "/mail/accounts", nil, &accounts)
 	if len(accounts) != 1 || accounts[0].Status != api.Ok {
 		t.Fatalf("account did not stay healthy: %+v", accounts)
+	}
+}
+
+func TestSyncFallsBackToFullHeader(t *testing.T) {
+	env, _, f := setup(t)
+	// Simulate a server rejecting HEADER.FIELDS. Neither request may use ENVELOPE.
+	f.failHeaderFields.Store(true)
+	f.failEnvelope.Store(true)
+	f.add(t, gbkMail(), time.Now().Add(-time.Hour))
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "initial sync with full headers", func() bool { return len(list(t, env, "")) == 1 })
+	first := bySubject(list(t, env, ""), "你好世界")
+	if first == nil || first.From.Name == nil || *first.From.Name != "小王" || !first.Unread {
+		t.Fatalf("fallback headers or unread state: %+v", first)
+	}
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Header fallback", 1), time.Now())
+	eventually(t, "incremental sync with full headers", func() bool { return len(list(t, env, "")) == 2 })
+	following := bySubject(list(t, env, ""), "Header fallback")
+	if following == nil || following.From.Address != "alice@example.com" || !following.Unread {
+		t.Fatalf("incremental fallback: %+v", following)
+	}
+	eventually(t, "fallback mail notification", func() bool { return len(mailNotes(t, env)) == 1 })
+	if f.headerFieldFetches.Load() < 2 || f.fullHeaderFetches.Load() < 2 {
+		t.Fatalf("missing fallback requests: fields=%d header=%d", f.headerFieldFetches.Load(), f.fullHeaderFetches.Load())
+	}
+	other := f.client(t)
+	msgs, err := other.Fetch(imap.UIDSetNum(1, 2), &imap.FetchOptions{Flags: true}).Collect()
+	if err != nil || len(msgs) != 2 {
+		t.Fatalf("fetch flags: messages=%d err=%v", len(msgs), err)
+	}
+	for _, msg := range msgs {
+		for _, flag := range msg.Flags {
+			if flag == imap.FlagSeen {
+				t.Fatalf("fallback marked UID %d read", msg.UID)
+			}
+		}
 	}
 }
 

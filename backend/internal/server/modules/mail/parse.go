@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"mime/quotedprintable"
@@ -30,6 +31,34 @@ func summaryHeaderSection() *imap.FetchItemBodySection {
 		HeaderFields: []string{"Subject", "From", "Date", "Message-ID"},
 		Peek:         true,
 	}
+}
+
+func fullHeaderSection() *imap.FetchItemBodySection {
+	return &imap.FetchItemBodySection{Specifier: imap.PartSpecifierHeader, Peek: true}
+}
+
+// go-imap encodes HEADER.FIELDS names as quoted strings. On a tagged BAD,
+// try the simpler HEADER request for compatibility with strict servers.
+// Both forms use PEEK and avoid the malformed ENVELOPE returned by QQ.
+func fetchSummaries(c *imapclient.Client, set imap.NumSet) ([]*imapclient.FetchMessageBuffer, error) {
+	opts := &imap.FetchOptions{
+		UID: true, Flags: true, InternalDate: true, BodyStructure: &imap.FetchItemBodyStructure{Extended: true},
+		BodySection: []*imap.FetchItemBodySection{summaryHeaderSection()},
+	}
+	msgs, err := c.Fetch(set, opts).Collect()
+	if err == nil {
+		return msgs, nil
+	}
+	var status *imap.Error
+	if !errors.As(err, &status) || status.Type != imap.StatusResponseTypeBad {
+		return nil, fmt.Errorf("读取邮件摘要（FETCH HEADER.FIELDS）: %w", err)
+	}
+	opts.BodySection = []*imap.FetchItemBodySection{fullHeaderSection()}
+	msgs, err = c.Fetch(set, opts).Collect()
+	if err != nil {
+		return nil, fmt.Errorf("读取邮件摘要（FETCH HEADER.FIELDS 返回 BAD，重试 FETCH HEADER）: %w", err)
+	}
+	return msgs, nil
 }
 
 func summaryHeader(raw []byte) mailmessage.Header {
