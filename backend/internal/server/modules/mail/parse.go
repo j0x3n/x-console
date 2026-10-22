@@ -1,11 +1,13 @@
 package mail
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"mime/quotedprintable"
+	"net/textproto"
 	"regexp"
 	"slices"
 	"strconv"
@@ -14,10 +16,27 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/emersion/go-message/charset"
+	mailmessage "github.com/emersion/go-message/mail"
 	"golang.org/x/net/html"
 )
 
 const snippetRunes = 160
+
+// Read the original headers instead of ENVELOPE: some servers return an
+// invalid quoted string there and break the whole IMAP connection.
+func summaryHeaderSection() *imap.FetchItemBodySection {
+	return &imap.FetchItemBodySection{
+		Specifier:    imap.PartSpecifierHeader,
+		HeaderFields: []string{"Subject", "From", "Date", "Message-ID"},
+		Peek:         true,
+	}
+}
+
+func summaryHeader(raw []byte) mailmessage.Header {
+	// Keep any fields parsed before a malformed header, without blocking sync.
+	h, _ := textproto.NewReader(bufio.NewReader(io.LimitReader(bytes.NewReader(raw), 64*1024))).ReadMIMEHeader()
+	return mailmessage.HeaderFromMap(h)
+}
 
 // textPart is where a message's readable text starts.
 type textPart struct {

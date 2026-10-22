@@ -301,7 +301,8 @@ func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, s
 	lastUID := acc.LastUid
 	if set != nil {
 		msgs, err := c.Fetch(set, &imap.FetchOptions{
-			UID: true, Flags: true, Envelope: true, InternalDate: true, BodyStructure: &imap.FetchItemBodyStructure{Extended: true},
+			UID: true, Flags: true, InternalDate: true, BodyStructure: &imap.FetchItemBodyStructure{Extended: true},
+			BodySection: []*imap.FetchItemBodySection{summaryHeaderSection()},
 		}).Collect()
 		if err != nil {
 			return err
@@ -411,16 +412,16 @@ func messageRow(accountID int64, b *imapclient.FetchMessageBuffer, snippet strin
 	row := db.InsertMessageParams{AccountID: accountID, Uid: int64(b.UID), Snippet: snippet}
 	row.Unread, row.Flagged = flagValues(b.Flags)
 	date := b.InternalDate
-	if env := b.Envelope; env != nil {
-		row.Subject = cleanLine(env.Subject)
-		row.MessageID = env.MessageID
-		if len(env.From) > 0 {
-			row.FromName = cleanLine(env.From[0].Name)
-			row.FromAddress = env.From[0].Addr()
-		}
-		if date.IsZero() {
-			date = env.Date
-		}
+	h := summaryHeader(b.FindBodySection(summaryHeaderSection()))
+	subject, _ := h.Subject()
+	row.Subject = cleanLine(subject)
+	row.MessageID, _ = h.MessageID()
+	if from, _ := h.AddressList("From"); len(from) > 0 {
+		row.FromName = cleanLine(from[0].Name)
+		row.FromAddress = from[0].Address
+	}
+	if date.IsZero() {
+		date, _ = h.Date()
 	}
 	if date.IsZero() {
 		date = time.Now()

@@ -46,6 +46,7 @@ type fakeIMAP struct {
 	lossy         atomic.Bool  // 设上以后 STORE 不保存任何状态
 	bodyFetches   atomic.Int32
 	failBodies    atomic.Bool
+	failEnvelope  atomic.Bool
 	failCopy      atomic.Bool
 	failCreate    atomic.Bool
 	creates       atomic.Int32
@@ -100,6 +101,9 @@ func (s *session) Create(name string, options *imap.CreateOptions) error {
 }
 
 func (s *session) Fetch(w *imapserver.FetchWriter, set imap.NumSet, options *imap.FetchOptions) error {
+	if options.Envelope && s.f.failEnvelope.Load() {
+		return &imap.Error{Type: imap.StatusResponseTypeBad, Text: "broken ENVELOPE"}
+	}
 	for _, section := range options.BodySection {
 		if len(section.Part) == 0 && section.Partial != nil && section.Partial.Size > 2048 {
 			if s.f.bodyFetches.Add(1) == 1 && s.f.bodyStarted != nil {
@@ -352,6 +356,34 @@ func TestAccountNeedsWorkingLogin(t *testing.T) {
 	in["imapPort"] = 1 // 没人监听
 	if status, body := env.Do(http.MethodPost, "/mail/accounts", in, nil); status != http.StatusBadRequest || !strings.Contains(string(body), "连不上服务器") {
 		t.Fatalf("closed port: %d %s", status, body)
+	}
+}
+
+func TestSyncContinuesWithoutEnvelope(t *testing.T) {
+	env, _, f := setup(t)
+	f.add(t, plainMail, time.Now().Add(-time.Hour))
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "initial healthy sync", func() bool { return len(list(t, env, "")) == 1 })
+
+	// Simulate a server whose ENVELOPE stops working after the first sync.
+	f.failEnvelope.Store(true)
+	raw := strings.Replace(plainMail, "Subject: Hello", "Subject: Alice's \"status\"\n update", 1)
+	raw = strings.Replace(raw, "From: Alice <alice@example.com>", "From: \"Alice's \\\"team\\\"\" <alice@example.com>", 1)
+	f.add(t, raw, time.Now())
+	eventually(t, "new message without ENVELOPE", func() bool { return len(list(t, env, "")) == 2 })
+	x := bySubject(list(t, env, ""), "Alice's \"status\" update")
+	if x == nil || x.From.Address != "alice@example.com" || x.From.Name == nil || *x.From.Name != "Alice's \"team\"" || !x.Unread {
+		t.Fatalf("headers or unread state: %+v", x)
+	}
+	eventually(t, "new mail notification", func() bool { return len(mailNotes(t, env)) == 1 })
+	// A later message must also arrive; the bad envelope must not stall the UID.
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Following mail", 1), time.Now())
+	eventually(t, "following message", func() bool { return len(list(t, env, "")) == 3 })
+	var accounts []api.MailAccount
+	env.MustDo(http.MethodGet, "/mail/accounts", nil, &accounts)
+	if len(accounts) != 1 || accounts[0].Status != api.Ok {
+		t.Fatalf("account did not stay healthy: %+v", accounts)
 	}
 }
 
