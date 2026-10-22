@@ -131,6 +131,12 @@ func (m *Module) GetMailMessage(w http.ResponseWriter, r *http.Request, messageI
 		httpx.Fail(w, r, err)
 		return
 	}
+	// The worker may have repaired legacy metadata while the body was loading.
+	row, err = m.getMessage(ctx, messageID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	s := rowSummary(row)
 	httpx.JSON(w, http.StatusOK, api.MailMessage{
 		Id: s.Id, AccountId: s.AccountId, From: s.From, Subject: s.Subject, Snippet: s.Snippet, Date: s.Date,
@@ -153,6 +159,18 @@ func (m *Module) loadBody(ctx context.Context, row db.MailMessage) (bodyJSON, er
 	}
 	if row.BodyJson != nil {
 		if err := json.Unmarshal([]byte(*row.BodyJson), &body); err == nil {
+			toChanged := normalizeAddressNames(body.To)
+			ccChanged := normalizeAddressNames(body.Cc)
+			if toChanged || ccChanged {
+				raw, err := json.Marshal(body)
+				if err != nil {
+					return body, err
+				}
+				s := string(raw)
+				if _, err := m.q.SetMessageBody(ctx, db.SetMessageBodyParams{BodyJson: &s, ID: row.ID}); err != nil {
+					return body, err
+				}
+			}
 			return body, nil
 		}
 	}
@@ -316,12 +334,26 @@ func addresses(h gomail.Header, key string) []api.MailAddress {
 	for _, a := range list {
 		x := api.MailAddress{Address: a.Address}
 		if a.Name != "" {
-			name := a.Name
+			name := addressName(a.Name)
 			x.Name = &name
 		}
 		out = append(out, x)
 	}
 	return out
+}
+
+func normalizeAddressNames(addresses []api.MailAddress) bool {
+	changed := false
+	for i := range addresses {
+		if name := addresses[i].Name; name != nil {
+			decoded := addressName(*name)
+			if decoded != *name {
+				addresses[i].Name = &decoded
+				changed = true
+			}
+		}
+	}
+	return changed
 }
 
 type countingReader struct {

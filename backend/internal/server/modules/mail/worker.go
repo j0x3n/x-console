@@ -198,10 +198,21 @@ func (m *Module) session(ctx context.Context, w *worker) (connected bool, err er
 	if err := m.checkValidity(ctx, acc, sel.UIDValidity); err != nil {
 		return true, err
 	}
+	repairCursor := int64(0)
+	repairDone := false
 	for {
 		m.runJobs(ctx, c, w)
 		if err := m.syncOnce(ctx, c, w.id, sel.NumMessages); err != nil {
 			return true, fmt.Errorf("同步失败: %w", err)
+		}
+		if !repairDone {
+			repairCursor, repairDone, err = m.repairSummaryBatch(ctx, c, w.id, repairCursor)
+			if err != nil {
+				return true, fmt.Errorf("补全历史邮件摘要失败: %w", err)
+			}
+			if !repairDone {
+				continue // Check new mail and queued operations before the next batch.
+			}
 		}
 		if idle {
 			if err := m.waitIdle(ctx, c, w); err != nil {
@@ -409,16 +420,13 @@ func messageRow(accountID int64, b *imapclient.FetchMessageBuffer, snippet strin
 	row := db.InsertMessageParams{AccountID: accountID, Uid: int64(b.UID), Snippet: snippet}
 	row.Unread, row.Flagged = flagValues(b.Flags)
 	date := b.InternalDate
-	raw := b.FindBodySection(summaryHeaderSection())
-	if raw == nil {
-		raw = b.FindBodySection(fullHeaderSection())
-	}
+	raw, _ := summaryHeaderBytes(b)
 	h := summaryHeader(raw)
 	subject, _ := h.Subject()
 	row.Subject = cleanLine(subject)
 	row.MessageID, _ = h.MessageID()
 	if from, _ := h.AddressList("From"); len(from) > 0 {
-		row.FromName = cleanLine(from[0].Name)
+		row.FromName = addressName(from[0].Name)
 		row.FromAddress = from[0].Address
 	}
 	if date.IsZero() {

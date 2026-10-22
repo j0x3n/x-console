@@ -47,7 +47,7 @@ func fetchSummaries(c *imapclient.Client, set imap.NumSet) ([]*imapclient.FetchM
 	}
 	msgs, err := c.Fetch(set, opts).Collect()
 	if err == nil {
-		return msgs, nil
+		return checkedSummaryHeaders(msgs)
 	}
 	var status *imap.Error
 	if !errors.As(err, &status) || status.Type != imap.StatusResponseTypeBad {
@@ -58,7 +58,47 @@ func fetchSummaries(c *imapclient.Client, set imap.NumSet) ([]*imapclient.FetchM
 	if err != nil {
 		return nil, fmt.Errorf("读取邮件摘要（FETCH HEADER.FIELDS 返回 BAD，重试 FETCH HEADER）: %w", err)
 	}
+	return checkedSummaryHeaders(msgs)
+}
+
+func checkedSummaryHeaders(msgs []*imapclient.FetchMessageBuffer) ([]*imapclient.FetchMessageBuffer, error) {
+	for _, b := range msgs {
+		if _, ok := summaryHeaderBytes(b); !ok {
+			return nil, errors.New("读取邮件摘要失败：FETCH 没有返回完整邮件头")
+		}
+	}
 	return msgs, nil
+}
+
+// Header field lists describe a set. Servers may reorder or change the case
+// of its names. Never accept a message body, nested header or partial header.
+func summaryHeaderBytes(b *imapclient.FetchMessageBuffer) ([]byte, bool) {
+	for _, body := range b.BodySection {
+		s := body.Section
+		if s == nil || s.Specifier != imap.PartSpecifierHeader || len(s.Part) != 0 || s.Partial != nil || len(s.HeaderFieldsNot) != 0 || body.Bytes == nil {
+			continue
+		}
+		complete := true
+		if len(s.HeaderFields) != 0 {
+			for _, want := range summaryHeaderSection().HeaderFields {
+				if !slices.ContainsFunc(s.HeaderFields, func(field string) bool { return strings.EqualFold(field, want) }) {
+					complete = false
+					break
+				}
+			}
+		}
+		if complete {
+			return body.Bytes, true
+		}
+	}
+	return nil, false
+}
+
+func addressName(name string) string {
+	if decoded, err := wordDecoder.DecodeHeader(name); err == nil {
+		name = decoded
+	}
+	return cleanLine(name)
 }
 
 func summaryHeader(raw []byte) mailmessage.Header {

@@ -42,21 +42,22 @@ type fakeIMAP struct {
 	user *imapmemserver.User
 	tls  *tls.Config // what clients use to trust it
 
-	logins             atomic.Int32 // 登录过多少次，用来看有没有另开连接
-	lossy              atomic.Bool  // 设上以后 STORE 不保存任何状态
-	bodyFetches        atomic.Int32
-	failBodies         atomic.Bool
-	failEnvelope       atomic.Bool
-	failHeaderFields   atomic.Bool
-	headerFieldFetches atomic.Int32
-	fullHeaderFetches  atomic.Int32
-	failCopy           atomic.Bool
-	failCreate         atomic.Bool
-	creates            atomic.Int32
-	archiveFolder      string // LIST 返回带有 \\Archive 的文件夹
-	allFolder          string // LIST 返回带有 \\All 的文件夹
-	bodyStarted        chan struct{}
-	bodyRelease        chan struct{}
+	logins              atomic.Int32 // 登录过多少次，用来看有没有另开连接
+	lossy               atomic.Bool  // 设上以后 STORE 不保存任何状态
+	bodyFetches         atomic.Int32
+	failBodies          atomic.Bool
+	failEnvelope        atomic.Bool
+	failHeaderFields    atomic.Bool
+	reorderHeaderFields atomic.Bool
+	headerFieldFetches  atomic.Int32
+	fullHeaderFetches   atomic.Int32
+	failCopy            atomic.Bool
+	failCreate          atomic.Bool
+	creates             atomic.Int32
+	archiveFolder       string // LIST 返回带有 \\Archive 的文件夹
+	allFolder           string // LIST 返回带有 \\All 的文件夹
+	bodyStarted         chan struct{}
+	bodyRelease         chan struct{}
 }
 
 // session is the fake server's session. In lossy mode STORE answers with the
@@ -109,6 +110,11 @@ func (s *session) Fetch(w *imapserver.FetchWriter, set imap.NumSet, options *ima
 	}
 	for _, section := range options.BodySection {
 		if len(section.HeaderFields) > 0 {
+			if s.f.reorderHeaderFields.Load() {
+				for i, j := 0, len(section.HeaderFields)-1; i < j; i, j = i+1, j-1 {
+					section.HeaderFields[i], section.HeaderFields[j] = section.HeaderFields[j], section.HeaderFields[i]
+				}
+			}
 			s.f.headerFieldFetches.Add(1)
 			if s.f.failHeaderFields.Load() {
 				return &imap.Error{Type: imap.StatusResponseTypeBad, Text: "invalid command or parameters"}
