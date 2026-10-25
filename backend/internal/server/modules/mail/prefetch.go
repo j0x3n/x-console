@@ -46,7 +46,7 @@ func (m *Module) prefetchBodies(ctx context.Context, c *imapclient.Client, accou
 			return err
 		}
 		row, ok := byUID[buf.UID]
-		raw := buf.FindBodySection(section)
+		raw := messageBodyBytes(buf)
 		if !ok || raw == nil {
 			continue
 		}
@@ -65,7 +65,7 @@ func (m *Module) cachePrefetchedBody(ctx context.Context, row db.MailMessage, ra
 		return err
 	}
 	var body bodyJSON
-	if row.BodyJson != nil && json.Unmarshal([]byte(*row.BodyJson), &body) == nil {
+	if row.BodyJson != nil && json.Unmarshal([]byte(*row.BodyJson), &body) == nil && !bodyNeedsRepair(body) {
 		return nil // An open already cached this body and its attachments.
 	}
 	_, err = m.storeBody(ctx, row, bytes.NewReader(raw))

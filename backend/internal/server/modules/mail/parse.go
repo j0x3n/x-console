@@ -46,19 +46,82 @@ func fetchSummaries(c *imapclient.Client, set imap.NumSet) ([]*imapclient.FetchM
 		BodySection: []*imap.FetchItemBodySection{summaryHeaderSection()},
 	}
 	msgs, err := c.Fetch(set, opts).Collect()
-	if err == nil {
-		return checkedSummaryHeaders(msgs)
+	if err == nil && !summariesNeedFullHeaders(msgs) {
+		return msgs, nil
 	}
 	var status *imap.Error
-	if !errors.As(err, &status) || status.Type != imap.StatusResponseTypeBad {
+	if err != nil && (!errors.As(err, &status) || status.Type != imap.StatusResponseTypeBad) {
 		return nil, fmt.Errorf("读取邮件摘要（FETCH HEADER.FIELDS）: %w", err)
 	}
 	opts.BodySection = []*imap.FetchItemBodySection{fullHeaderSection()}
 	msgs, err = c.Fetch(set, opts).Collect()
 	if err != nil {
-		return nil, fmt.Errorf("读取邮件摘要（FETCH HEADER.FIELDS 返回 BAD，重试 FETCH HEADER）: %w", err)
+		return nil, fmt.Errorf("读取邮件摘要（重试 FETCH HEADER）: %w", err)
+	}
+	// Some servers answer OK but return empty or unrelated filtered headers.
+	// If even HEADER is empty, obtain the original RFC 5322 message with PEEK.
+	for _, b := range msgs {
+		raw, ok := summaryHeaderBytes(b)
+		if ok {
+			h := summaryHeader(raw)
+			if h.Get("Subject") != "" || h.Get("From") != "" {
+				continue
+			}
+		}
+		section := bodySection()
+		full, err := c.Fetch(imap.UIDSetNum(b.UID), &imap.FetchOptions{UID: true, BodySection: []*imap.FetchItemBodySection{section}}).Collect()
+		if err != nil {
+			return nil, fmt.Errorf("补取完整邮件的邮件头: %w", err)
+		}
+		found := false
+		for _, message := range full {
+			if message.UID != b.UID {
+				continue
+			}
+			raw := messageBodyBytes(message)
+			if raw == nil {
+				continue
+			}
+			if end := bytes.Index(raw, []byte("\r\n\r\n")); end >= 0 {
+				raw = raw[:end+4]
+			} else if end := bytes.Index(raw, []byte("\n\n")); end >= 0 {
+				raw = raw[:end+2]
+			}
+			b.BodySection = []imapclient.FetchBodySectionBuffer{{Section: fullHeaderSection(), Bytes: bytes.Clone(raw)}}
+			found = true
+			break
+		}
+		if !found {
+			return nil, errors.New("补取完整邮件失败：没有返回原始邮件")
+		}
 	}
 	return checkedSummaryHeaders(msgs)
+}
+
+func summariesNeedFullHeaders(msgs []*imapclient.FetchMessageBuffer) bool {
+	for _, b := range msgs {
+		raw, ok := summaryHeaderBytes(b)
+		if !ok {
+			return true
+		}
+		h := summaryHeader(raw)
+		if h.Get("Subject") == "" || h.Get("From") == "" {
+			return true
+		}
+	}
+	return false
+}
+
+// Offset-zero FETCH responses may contain the entire body without echoing a
+// partial marker. Never confuse a text part or header with the original mail.
+func messageBodyBytes(b *imapclient.FetchMessageBuffer) []byte {
+	for _, body := range b.BodySection {
+		s := body.Section
+		if s != nil && s.Specifier == "" && len(s.Part) == 0 && len(s.HeaderFields) == 0 && len(s.HeaderFieldsNot) == 0 && (s.Partial == nil || s.Partial.Offset == 0) && body.Bytes != nil {
+			return body.Bytes
+		}
+	}
+	return nil
 }
 
 func checkedSummaryHeaders(msgs []*imapclient.FetchMessageBuffer) ([]*imapclient.FetchMessageBuffer, error) {

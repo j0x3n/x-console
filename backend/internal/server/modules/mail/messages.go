@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -33,11 +34,25 @@ const (
 
 // bodyJSON is what mail_messages.body_json holds.
 type bodyJSON struct {
+	Version     int                  `json:"version,omitempty"`
 	To          []api.MailAddress    `json:"to"`
 	Cc          []api.MailAddress    `json:"cc"`
 	HTML        *string              `json:"html,omitempty"`
 	Text        string               `json:"text"`
 	Attachments []api.MailAttachment `json:"attachments"`
+	header      gomail.Header
+}
+
+func bodyNeedsRepair(body bodyJSON) bool {
+	if body.Version >= 1 {
+		return false
+	}
+	if strings.TrimSpace(body.Text) != "" || (body.HTML != nil && strings.TrimSpace(*body.HTML) != "") {
+		return false
+	}
+	return len(body.Attachments) == 0 || slices.ContainsFunc(body.Attachments, func(a api.MailAttachment) bool {
+		return a.ContentId != nil && (a.Mime == "text/html" || a.Mime == "text/plain")
+	})
 }
 
 func summaryView(r db.ListMessagesRow) api.MailSummary {
@@ -158,7 +173,7 @@ func (m *Module) loadBody(ctx context.Context, row db.MailMessage) (bodyJSON, er
 		return body, err
 	}
 	if row.BodyJson != nil {
-		if err := json.Unmarshal([]byte(*row.BodyJson), &body); err == nil {
+		if err := json.Unmarshal([]byte(*row.BodyJson), &body); err == nil && !bodyNeedsRepair(body) {
 			toChanged := normalizeAddressNames(body.To)
 			ccChanged := normalizeAddressNames(body.Cc)
 			if toChanged || ccChanged {
@@ -197,11 +212,11 @@ func (m *Module) loadBody(ctx context.Context, row db.MailMessage) (bodyJSON, er
 	if err != nil {
 		return body, httpx.NewError(http.StatusBadGateway, "mail_unavailable", "取邮件失败："+err.Error())
 	}
-	if len(msgs) == 0 || msgs[0].FindBodySection(section) == nil {
+	if len(msgs) == 0 || messageBodyBytes(msgs[0]) == nil {
 		return body, httpx.NewError(http.StatusNotFound, "not_found", "这封邮件在邮箱里已经没有了")
 	}
 	_ = c.Logout().Wait()
-	return m.storeBody(ctx, row, bytes.NewReader(msgs[0].FindBodySection(section)))
+	return m.storeBody(ctx, row, bytes.NewReader(messageBodyBytes(msgs[0])))
 }
 
 // lockBody guards parsing, file cleanup and cache persistence for an account/UID.
@@ -224,6 +239,9 @@ func (m *Module) storeBody(ctx context.Context, row db.MailMessage, r io.Reader)
 	if err != nil {
 		return body, httpx.NewError(http.StatusBadGateway, "mail_unavailable", "邮件解析失败："+err.Error())
 	}
+	if err := m.mergeBodySummary(ctx, row, body); err != nil {
+		return body, err
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return body, err
@@ -236,13 +254,38 @@ func (m *Module) storeBody(ctx context.Context, row db.MailMessage, r io.Reader)
 	if n == 0 {
 		return body, httpx.ErrNotFound
 	}
+	if row.Subject == "" || row.FromAddress == "" || row.Snippet == "" {
+		m.d.Bus.Publish("mail.updated", map[string]any{"accountId": row.AccountID})
+	}
 	return body, nil
+}
+
+// The original message is also authoritative for metadata. This repairs a
+// server's empty HEADER.FIELDS response without replacing good fields by blanks.
+func (m *Module) mergeBodySummary(ctx context.Context, row db.MailMessage, body bodyJSON) error {
+	subject, _ := body.header.Subject()
+	messageID, _ := body.header.MessageID()
+	var fromName, fromAddress string
+	if from, _ := body.header.AddressList("From"); len(from) > 0 {
+		fromName, fromAddress = addressName(from[0].Name), from[0].Address
+	}
+	subject = cleanLine(subject)
+	snippet := cutRunes(cleanText(body.Text), snippetRunes)
+	_, err := m.d.DB.ExecContext(ctx, `UPDATE mail_messages SET
+		subject = CASE WHEN ? <> '' THEN ? ELSE subject END,
+		from_name = CASE WHEN ? <> '' THEN ? ELSE from_name END,
+		from_address = CASE WHEN ? <> '' THEN ? ELSE from_address END,
+		message_id = CASE WHEN ? <> '' THEN ? ELSE message_id END,
+		snippet = CASE WHEN snippet = '' AND ? <> '' THEN ? ELSE snippet END
+		WHERE id = ?`, subject, subject, fromName, fromName, fromAddress, fromAddress,
+		messageID, messageID, snippet, snippet, row.ID)
+	return err
 }
 
 // parseMessage reads a whole message. Attachments and inline images go to
 // the file store under prefix/<index>.
 func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (bodyJSON, error) {
-	body := bodyJSON{To: []api.MailAddress{}, Cc: []api.MailAddress{}, Attachments: []api.MailAttachment{}}
+	body := bodyJSON{Version: 1, To: []api.MailAddress{}, Cc: []api.MailAddress{}, Attachments: []api.MailAttachment{}}
 	mr, err := gomail.CreateReader(r)
 	if err != nil && !message.IsUnknownCharset(err) {
 		if mr == nil {
@@ -251,6 +294,7 @@ func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (
 	}
 	body.To = addresses(mr.Header, "To")
 	body.Cc = addresses(mr.Header, "Cc")
+	body.header = mr.Header
 	var htmlBody string
 	for {
 		p, err := mr.NextPart()
@@ -258,8 +302,7 @@ func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (
 			break
 		}
 		if err != nil && (p == nil || !message.IsUnknownCharset(err)) {
-			m.d.Log.Warn("mail: part", "err", err)
-			break // 留下已经读到的部分
+			return body, err
 		}
 		var (
 			mediaType string
@@ -285,14 +328,20 @@ func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (
 			continue
 		}
 		mediaType = strings.ToLower(mediaType)
-		if !isAttach && cid == "" {
+		if !isAttach {
 			switch {
 			case mediaType == "text/plain" && body.Text == "":
-				b, _ := io.ReadAll(io.LimitReader(p.Body, maxTextBytes))
+				b, err := io.ReadAll(io.LimitReader(p.Body, maxTextBytes))
+				if err != nil {
+					return body, err
+				}
 				body.Text = strings.ToValidUTF8(string(b), "")
 				continue
 			case mediaType == "text/html" && htmlBody == "":
-				b, _ := io.ReadAll(io.LimitReader(p.Body, maxHTMLBytes))
+				b, err := io.ReadAll(io.LimitReader(p.Body, maxHTMLBytes))
+				if err != nil {
+					return body, err
+				}
 				htmlBody = strings.ToValidUTF8(string(b), "")
 				continue
 			case strings.HasPrefix(mediaType, "text/") || strings.HasPrefix(mediaType, "multipart/"):

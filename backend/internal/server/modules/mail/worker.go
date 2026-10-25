@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -39,6 +40,7 @@ type worker struct {
 	poke   chan struct{} // sync now: new mail, flag changes, or the sync button
 	cancel context.CancelFunc
 	done   chan struct{}
+	repair atomic.Bool
 
 	mu   sync.Mutex
 	live bool   // B217: 连着，能收请求
@@ -123,6 +125,7 @@ func (m *Module) pokeWorker(id int64) {
 		m.startWorker(id)
 		return
 	}
+	w.repair.Store(true)
 	w.wake()
 }
 
@@ -201,6 +204,9 @@ func (m *Module) session(ctx context.Context, w *worker) (connected bool, err er
 	repairCursor := int64(0)
 	repairDone := false
 	for {
+		if w.repair.Swap(false) {
+			repairCursor, repairDone = 0, false
+		}
 		m.runJobs(ctx, c, w)
 		if err := m.syncOnce(ctx, c, w.id, sel.NumMessages); err != nil {
 			return true, fmt.Errorf("同步失败: %w", err)
