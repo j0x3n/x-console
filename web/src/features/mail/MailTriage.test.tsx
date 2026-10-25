@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // openapi-fetch 在建客户端时就取走 fetch，所以要在 import 组件之前替换。
 const api = vi.hoisted(() => {
   type Reply = { status: number; body?: unknown };
-  const routes = new Map<string, (body: unknown) => Reply>();
+  const routes = new Map<string, (body: unknown) => Reply | Promise<Reply>>();
   const calls: Array<{ method: string; path: string; body: unknown }> = [];
   const BaseRequest = globalThis.Request;
   globalThis.Request = class extends BaseRequest {
@@ -26,7 +26,7 @@ const api = vi.hoisted(() => {
     calls.push({ method: req.method, path: path + url.search, body });
     const handler = routes.get(`${req.method} ${path}`);
     const reply = handler
-      ? handler(body)
+      ? await handler(body)
       : { status: 404, body: { code: "not_found", message: "not found" } };
     if (reply.body === undefined)
       return new Response(null, { status: reply.status });
@@ -190,6 +190,14 @@ describe("邮件分拣（B136）", () => {
     renderAt("/mail?m=1");
     const panel = await screen.findByRole("region", { name: "AI 分拣" });
     expect(within(panel).getByText("请在截止前签字")).toBeTruthy();
+    const title = screen.getByRole("heading", {
+      name: "合同请签字",
+    }).parentElement!;
+    expect(within(title).getByText("要处理")).toBeTruthy();
+    expect(within(panel).queryByText("要处理")).toBeNull();
+    expect(
+      within(panel).queryByRole("button", { name: "重新分拣" }),
+    ).toBeNull();
     fireEvent.click(
       within(panel).getByRole("button", {
         name: new RegExp(`提醒我 ${soonDate}`),
@@ -208,7 +216,7 @@ describe("邮件分拣（B136）", () => {
     expect(new Date(body.at).getHours()).toBe(9);
   });
 
-  it("阅读区：没分拣过的邮件有按钮，点了请求分拣", async () => {
+  it("阅读区：没分拣过的邮件用标题旁的图标请求分拣", async () => {
     api.routes.set("GET /mail/messages/1", () => ({
       status: 200,
       body: {
@@ -226,13 +234,63 @@ describe("邮件分拣（B136）", () => {
       body: { category: "notice", summary: "账单", dates: [] },
     }));
     renderAt("/mail?m=1");
-    const panel = await screen.findByRole("region", { name: "AI 分拣" });
-    fireEvent.click(within(panel).getByRole("button", { name: "用 AI 分拣" }));
+    const button = await screen.findByRole("button", { name: "重新分拣" });
+    expect(button.title).toBe("重新分拣");
+    expect(button.textContent).toBe("");
+    expect(screen.queryByRole("region", { name: "AI 分拣" })).toBeNull();
+    fireEvent.click(button);
     await waitFor(() =>
       expect(api.calls.some((c) => c.path === "/mail/messages/1/triage")).toBe(
         true,
       ),
     );
+  });
+
+  it("阅读区：重新分拣等待期间禁用图标按钮", async () => {
+    let finish!: (reply: { status: number; body: unknown }) => void;
+    const reply = new Promise<{ status: number; body: unknown }>((resolve) => {
+      finish = resolve;
+    });
+    api.routes.set("POST /mail/messages/1/triage", () => reply);
+    renderAt("/mail?m=1");
+    const button = (await screen.findByRole("button", {
+      name: "重新分拣",
+    })) as HTMLButtonElement;
+    fireEvent.click(button);
+    await waitFor(() => expect(button.disabled).toBe(true));
+    expect(button.title).toBe("重新分拣");
+    finish({ status: 200, body: action });
+    await waitFor(() => expect(button.disabled).toBe(false));
+    expect(
+      api.calls.filter((c) => c.path === "/mail/messages/1/triage"),
+    ).toHaveLength(1);
+  });
+
+  it("阅读区：验证码类型放在主题旁，摘要继续显示", async () => {
+    api.routes.set("GET /mail/messages/1", () => ({
+      status: 200,
+      body: {
+        ...row(1, "登录验证码", {
+          category: "notice",
+          code: true,
+          summary: "验证码为 123456",
+          dates: [],
+        }),
+        to: [],
+        cc: [],
+        text: "验证码为 123456",
+        html: null,
+        attachments: [],
+      },
+    }));
+    renderAt("/mail?m=1");
+    const panel = await screen.findByRole("region", { name: "AI 分拣" });
+    const title = screen.getByRole("heading", {
+      name: "登录验证码",
+    }).parentElement!;
+    expect(within(title).getByText("验证码")).toBeTruthy();
+    expect(within(panel).getByText("验证码为 123456")).toBeTruthy();
+    expect(within(panel).queryByText("验证码")).toBeNull();
   });
 });
 

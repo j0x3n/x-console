@@ -8,6 +8,7 @@ import {
   Paperclip,
   Star,
   Trash2,
+  WandSparkles,
 } from "lucide-react";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 import { ErrorState, Loading } from "../../../components/ui/States";
@@ -47,6 +48,7 @@ export default function MessageView({
   const message = useMailMessage(id);
   const update = useUpdateMailMessage();
   const batch = useBatchMail();
+  const triage = useTriageMailMessage();
   // 打开一封未读邮件时标成已读，同一封只标一次
   const marked = useRef<number | null>(null);
   useEffect(() => {
@@ -74,8 +76,29 @@ export default function MessageView({
         >
           <ArrowLeft size={15} />
         </button>
-        <h2>{m.subject || t("(No subject)")}</h2>
-        <span className="xc-spacer" />
+        <div className="mail-reader-title">
+          <h2>{m.subject || t("(No subject)")}</h2>
+          {m.triage && (
+            <span className={`xc-badge ${triageLabel(m.triage).tone}`}>
+              {t(triageLabel(m.triage).label)}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          className="xc-btn ghost small mail-sort-again"
+          title={t("Sort again")}
+          aria-label={t("Sort again")}
+          disabled={triage.isPending}
+          onClick={() =>
+            triage.mutate(m.id, {
+              onError: (err) =>
+                toast({ message: errorMessage(err), tone: "error" }),
+            })
+          }
+        >
+          <WandSparkles size={15} />
+        </button>
         <button
           type="button"
           className="xc-btn ghost small"
@@ -236,16 +259,11 @@ function MailBody({ m }: { m: MailMessage }) {
   );
 }
 
-/** B136：AI 分拣的结果，邮件里的日期可以一键加提醒。没有分拣过的邮件给一个按钮。 */
+/** B136：AI 分拣的摘要，邮件里的日期可以一键加提醒。 */
 function TriagePanel({ m }: { m: MailMessage }) {
   const t = useT();
-  const triage = useTriageMailMessage();
   const remind = useCreateReminder();
   const result = m.triage;
-  const run = () =>
-    triage.mutate(m.id, {
-      onError: (err) => toast({ message: errorMessage(err), tone: "error" }),
-    });
   const addReminder = (date: string, text: string) => {
     const at = reminderTimeFor(date);
     if (!at) return;
@@ -261,54 +279,34 @@ function TriagePanel({ m }: { m: MailMessage }) {
       },
     );
   };
+  if (!result || (!result.summary && result.dates.length === 0)) return null;
   return (
     <section className="mail-triage" aria-label={t("AI sorting")}>
-      {result ? (
-        <>
-          <div className="mail-triage-head">
-            <span className={`xc-badge ${triageLabel(result).tone}`}>
-              {t(triageLabel(result).label)}
-            </span>
-            <span>{result.summary}</span>
-          </div>
-          {result.dates.length > 0 && (
-            <ul className="mail-triage-dates">
-              {result.dates.map((d) => {
-                const at = reminderTimeFor(d.date);
-                return (
-                  <li key={`${d.date}-${d.text}`}>
-                    <span>
-                      {d.date} {d.text}
-                    </span>
-                    <button
-                      type="button"
-                      className="xc-btn small"
-                      disabled={!at || remind.isPending}
-                      title={at ? undefined : t("It is too late to remind")}
-                      aria-label={`${t("Mail remind me")} ${d.date} ${d.text}`}
-                      onClick={() => addReminder(d.date, d.text)}
-                    >
-                      {t("Mail remind me")}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
-      ) : null}
-      <button
-        type="button"
-        className="xc-btn ghost small"
-        disabled={triage.isPending}
-        onClick={run}
-      >
-        {triage.isPending
-          ? t("Sorting…")
-          : result
-            ? t("Sort again")
-            : t("Sort with AI")}
-      </button>
+      <div className="mail-triage-head">{result.summary}</div>
+      {result.dates.length > 0 && (
+        <ul className="mail-triage-dates">
+          {result.dates.map((d) => {
+            const at = reminderTimeFor(d.date);
+            return (
+              <li key={`${d.date}-${d.text}`}>
+                <span>
+                  {d.date} {d.text}
+                </span>
+                <button
+                  type="button"
+                  className="xc-btn small"
+                  disabled={!at || remind.isPending}
+                  title={at ? undefined : t("It is too late to remind")}
+                  aria-label={`${t("Mail remind me")} ${d.date} ${d.text}`}
+                  onClick={() => addReminder(d.date, d.text)}
+                >
+                  {t("Mail remind me")}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

@@ -178,6 +178,22 @@
   align-items: flex-start;
   gap: 6px;
 }
+.mail-reader-title {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.mail-reader-title > .xc-badge,
+.mail-reader-head > button {
+  flex-shrink: 0;
+}
+.mail-reader-head .mail-sort-again {
+  width: 28px;
+  padding: 0;
+}
 .mail-reader-head h2 {
   margin: 2px 0 0;
   font-size: var(--fs-16);
@@ -400,7 +416,4 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-.mail-triage > button {
-  justify-self: start;
 }
