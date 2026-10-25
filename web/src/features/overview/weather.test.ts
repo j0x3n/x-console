@@ -87,6 +87,44 @@ describe("B90 rain now", () => {
       "正在下雨，两小时内不会停",
     );
   });
+  it("ignores weak precipitation below 0.1 mm per five minutes", () => {
+    const points = Array.from({ length: 24 }, (_, i) => ({
+      time: at(i * 5),
+      precip: [0.04, 0.05, 0.06, 0.07][i % 4],
+      kind: "rain" as const,
+    }));
+    const minutely = { summary: "小雨", points };
+    expect(rainSoon(minutely, now)).toBeNull();
+    expect(minutely.summary).toBe("小雨");
+    expect(minutely.points[0].precip).toBe(0.04);
+  });
+  it("includes exactly 0.1 mm and skips earlier weak precipitation", () => {
+    expect(
+      rainSoon({ summary: "", points: [{ time: at(0), precip: 0.1 }] }, now),
+    ).toEqual({ kind: "rain", inMinutes: 0 });
+    expect(
+      rainSoon(
+        {
+          summary: "",
+          points: [
+            { time: at(0), precip: 0.07 },
+            { time: at(5), precip: 0.099 },
+            { time: at(10), precip: 0.1 },
+          ],
+        },
+        now,
+      ),
+    ).toEqual({ kind: "rain", inMinutes: 10 });
+  });
+  it("ends the rain reminder when precipitation falls below 0.1 mm", () => {
+    const points = [0.2, 0.1, 0.07, 0.04].map((precip, i) => ({
+      time: at(i * 5),
+      precip,
+    }));
+    const result = rainSoon({ summary: "", points }, now)!;
+    expect(result).toEqual({ kind: "rain", inMinutes: 0, endsIn: 10 });
+    expect(rainSoonText(result)).toBe("正在下雨，约 10 分钟后停");
+  });
   it("zero precipitation with rain type is dry, including the supplied sample", () => {
     const points = Array.from({ length: 24 }, (_, i) => ({
       time: at(i * 5),

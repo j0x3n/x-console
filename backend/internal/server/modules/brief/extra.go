@@ -396,7 +396,7 @@ func (m *Module) fetchMinutely(ctx context.Context, qc qwConfig, loc api.BriefLo
 	out := api.MinutelyRain{Summary: raw.Summary, Points: []api.MinutelyPoint{}}
 	for _, p := range raw.Minutely {
 		t, ok := qwTime(p.FxTime)
-		if !ok {
+		if !ok || !p.Precip.Set {
 			continue
 		}
 		pt := api.MinutelyPoint{Time: t, Precip: p.Precip.V}

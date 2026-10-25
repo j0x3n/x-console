@@ -60,13 +60,14 @@ export interface RainSoon {
   endsIn?: number | null;
 }
 
-/** 分钟降水里最早有降水的时间。两小时内都没有时为 null。 */
+/** 分钟降水里最早达到每五分钟 0.1 毫米的时间。两小时内都没有时为 null。 */
 export function rainSoon(
   minutely: WeatherExtra["minutely"],
   now: Date,
 ): RainSoon | null {
   const nowMs = now.getTime();
   const interval = 5 * 60_000;
+  const precipThreshold = 0.1;
   const horizon = nowMs + 120 * 60_000;
   const points = (minutely?.points ?? [])
     .filter((p) => {
@@ -74,7 +75,7 @@ export function rainSoon(
       return time + interval > nowMs && time <= horizon;
     })
     .sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
-  const hitIndex = points.findIndex((p) => p.precip > 0);
+  const hitIndex = points.findIndex((p) => p.precip >= precipThreshold);
   if (hitIndex < 0) return null;
   const hit = points[hitIndex];
   const minutesTo = (iso: string) =>
@@ -87,7 +88,8 @@ export function rainSoon(
   for (const p of points.slice(hitIndex + 1)) {
     const time = Date.parse(p.time);
     if (time !== coveredUntil) return { kind, inMinutes };
-    if (p.precip <= 0) return { kind, inMinutes, endsIn: minutesTo(p.time) };
+    if (p.precip < precipThreshold)
+      return { kind, inMinutes, endsIn: minutesTo(p.time) };
     coveredUntil = time + interval;
   }
   return coveredUntil >= horizon

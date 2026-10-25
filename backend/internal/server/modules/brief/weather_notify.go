@@ -22,10 +22,10 @@ const (
 	keyQuakesSeen        = "brief.quakes_seen"
 	keyRainSoonState     = "brief.weather_rain_state"
 
-	// rainSoonQuiet is how long a rain notice keeps the next one away,
-	// unless the rain stopped for rainSoonDry in between.
-	rainSoonQuiet = 2 * time.Hour
-	rainSoonDry   = 30 * time.Minute
+	// This is a notification threshold, not a change to the provider's data.
+	rainSoonMinPrecip = 0.1
+	rainSoonDry       = 30 * time.Minute
+	rainCheckMaxGap   = 10 * time.Minute
 	// quakeFresh is how old a quake may be and still be pushed. Older ones
 	// (for example right after the switch is turned on) are only marked seen.
 	quakeFresh = 6 * time.Hour
@@ -96,7 +96,9 @@ func placeName(loc api.BriefLocation) string {
 
 type rainSoonState struct {
 	LastSent time.Time `json:"lastSent"`
-	LastWet  time.Time `json:"lastWet"`
+	DrySince time.Time `json:"drySince,omitempty"`
+	Checked  time.Time `json:"checked,omitempty"`
+	Location string    `json:"location,omitempty"`
 }
 
 // checkRainSoon pushes once when the 5-minute forecast shows rain or snow
@@ -114,30 +116,55 @@ func (m *Module) checkRainSoon(ctx context.Context, now time.Time) error {
 	if err != nil || !qc.ok() {
 		return err
 	}
-	rain, err := m.fetchMinutely(ctx, qc, *cfg.Location)
-	if err != nil {
-		return err
-	}
 	var st rainSoonState
 	if err := m.get(ctx, keyRainSoonState, &st); err != nil {
 		return err
 	}
+	location := deref(cfg.Location.Id) + "|" + qwLoc(*cfg.Location)
+	if st.Location != "" && st.Location != location {
+		st = rainSoonState{}
+	}
+	st.Location = location
+	rain, err := m.fetchMinutely(ctx, qc, *cfg.Location)
+	if err != nil {
+		// An unavailable forecast does not establish a dry interval.
+		st.DrySince = time.Time{}
+		st.Checked = time.Time{}
+		if saveErr := m.d.Settings.Set(ctx, keyRainSoonState, st); saveErr != nil {
+			return saveErr
+		}
+		return err
+	}
+	if st.Checked.IsZero() || now.Sub(st.Checked) > rainCheckMaxGap || now.Before(st.Checked) {
+		st.DrySince = time.Time{}
+	}
+	st.Checked = now
 	until := now.Add(time.Duration(n.RainLeadMinutes) * time.Minute)
 	var first *api.MinutelyPoint
+	currentKnown := false
 	for i, p := range rain.Points {
 		// 每个点是它开始的 5 分钟
-		if p.Precip > 0 && p.Time.Add(5*time.Minute).After(now) && !p.Time.After(until) {
-			first = &rain.Points[i]
-			break
+		if !p.Time.After(now) && p.Time.Add(5*time.Minute).After(now) {
+			currentKnown = true
+		}
+		if p.Precip >= rainSoonMinPrecip && p.Time.Add(5*time.Minute).After(now) && !p.Time.After(until) {
+			if first == nil || p.Time.Before(first.Time) {
+				first = &rain.Points[i]
+			}
 		}
 	}
 	if first == nil {
-		return nil
+		if !currentKnown {
+			st.DrySince = time.Time{}
+		} else if st.DrySince.IsZero() {
+			st.DrySince = now
+		} else if now.Sub(st.DrySince) >= rainSoonDry {
+			st.LastSent = time.Time{}
+		}
+		return m.d.Settings.Set(ctx, keyRainSoonState, st)
 	}
-	quiet := !st.LastSent.IsZero() && now.Sub(st.LastSent) < rainSoonQuiet
-	stopped := st.LastWet.IsZero() || now.Sub(st.LastWet) >= rainSoonDry
-	st.LastWet = now
-	if quiet && !stopped {
+	st.DrySince = time.Time{}
+	if !st.LastSent.IsZero() {
 		return m.d.Settings.Set(ctx, keyRainSoonState, st)
 	}
 	what := "雨"

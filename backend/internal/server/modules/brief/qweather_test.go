@@ -387,8 +387,8 @@ func TestRainSoonNotify(t *testing.T) {
 	if len(got) != 1 || got[0].Title != "20 分钟后有雨（上海）" || got[0].Body != "20分钟后有雨" {
 		t.Fatalf("first: %+v", got)
 	}
-	// 冷却期内一直在下，不重复推
-	for i := 1; i <= 6; i++ {
+	// 同一轮一直在下，即使超过旧的两小时静默期也不重复推。
+	for i := 1; i <= 36; i++ {
 		now := base.Add(time.Duration(i) * 5 * time.Minute)
 		rainAt(now, 0, time.Hour, "rain")
 		check(now)
@@ -397,12 +397,12 @@ func TestRainSoonNotify(t *testing.T) {
 		t.Fatalf("cooldown: %+v", got)
 	}
 	// 停了 30 分钟以后又要下雪，再推
-	for i := 7; i <= 13; i++ {
+	for i := 37; i <= 43; i++ {
 		now := base.Add(time.Duration(i) * 5 * time.Minute)
 		rainAt(now, 0, 0, "rain")
 		check(now)
 	}
-	now := base.Add(70 * time.Minute)
+	now := base.Add(220 * time.Minute)
 	rainAt(now, 10*time.Minute, time.Hour, "snow")
 	check(now)
 	got = notes(t, env, "weather.rain_soon")
@@ -420,9 +420,11 @@ func TestMinutelyRainUsesProviderData(t *testing.T) {
 		wantNotify bool
 	}{
 		{"zero rain type", "0", 0, false},
-		{"wet despite fog and zero hourly probability", "0.05", 0, true},
-		{"expired rain", "0.05", -5 * time.Minute, false},
-		{"future rain", "0.05", 5 * time.Minute, true},
+		{"weak precipitation despite fog", "0.05", 0, false},
+		{"below notification threshold", "0.09", 0, false},
+		{"wet despite fog and zero hourly probability", "0.1", 0, true},
+		{"expired rain", "0.1", -5 * time.Minute, false},
+		{"future rain", "0.1", 5 * time.Minute, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env, m, f := setupQW(t)
@@ -439,9 +441,9 @@ func TestMinutelyRainUsesProviderData(t *testing.T) {
 			if ex.Minutely == nil || len(ex.Minutely.Points) != 1 {
 				t.Fatalf("minutely: %+v", ex.Minutely)
 			}
-			want := 0.0
-			if tc.precip != "0" {
-				want = 0.05
+			var want float64
+			if _, err := fmt.Sscan(tc.precip, &want); err != nil {
+				t.Fatal(err)
 			}
 			if ex.Minutely.Points[0].Precip != want || ex.Minutely.Summary != "20分钟后有雨" {
 				t.Fatalf("provider data changed: %+v", ex.Minutely)
@@ -463,6 +465,42 @@ func TestMinutelyRainUsesProviderData(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRainSoonMissingForecastDoesNotStartNewEpisode(t *testing.T) {
+	env, m, f := setupQW(t)
+	configureQW(t, env)
+	env.MustDo(http.MethodPut, "/weather/notify", api.WeatherNotify{RainSoon: true, RainLeadMinutes: 30, WarningMinLevel: api.Yellow, QuakeMinMagnitude: 4.5, QuakeRadiusKm: 500}, nil)
+	base := time.Now().Truncate(time.Minute)
+	check := func(now time.Time, precip string) {
+		t.Helper()
+		f.set(func(f *qwFake) {
+			if precip == "" {
+				f.minutely = "[]"
+			} else {
+				f.minutely = fmt.Sprintf(`[{"fxTime":%q,"precip":%q,"type":"rain"}]`, now.Format(time.RFC3339), precip)
+			}
+		})
+		if err := brief.CheckRainSoon(m, context.Background(), now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check(base, "0.3")
+	for i := 1; i <= 8; i++ {
+		check(base.Add(time.Duration(i)*5*time.Minute), "")
+	}
+	check(base.Add(45*time.Minute), "0.3")
+	if got := notes(t, env, "weather.rain_soon"); len(got) != 1 {
+		t.Fatalf("missing forecast reset episode: %+v", got)
+	}
+	// Weak but valid current points establish a dry interval for notifications.
+	for i := 10; i <= 16; i++ {
+		check(base.Add(time.Duration(i)*5*time.Minute), "0.05")
+	}
+	check(base.Add(85*time.Minute), "0.3")
+	if got := notes(t, env, "weather.rain_soon"); len(got) != 2 {
+		t.Fatalf("weak dry interval did not reset episode: %+v", got)
 	}
 }
 
