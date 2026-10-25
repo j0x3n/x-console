@@ -302,7 +302,10 @@ func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (
 			break
 		}
 		if err != nil && (p == nil || !message.IsUnknownCharset(err)) {
-			if (errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF)) && (body.Text != "" || htmlBody != "") {
+			// go-message's multipart reader formats EOF with %v, so this
+			// particular truncated-boundary error does not support errors.Is.
+			truncated := errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || err.Error() == "multipart: NextPart: EOF"
+			if truncated && (body.Text != "" || htmlBody != "") {
 				m.d.Log.Warn("mail: incomplete MIME after readable body", "err", err)
 				break
 			}
