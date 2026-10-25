@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail/api"
 )
 
@@ -57,5 +58,39 @@ func TestManualSyncRepairsEmptyLegacyBodyAndSnippet(t *testing.T) {
 	}
 	if len(mailNotes(t, env)) != 0 {
 		t.Fatal("repair sent historical mail notifications")
+	}
+}
+
+func TestHistoricalBodyFailureDoesNotBlockLaterMessages(t *testing.T) {
+	env, _, f := setup(t)
+	f.add(t, plainMail, time.Now().Add(-time.Hour))
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Following message", 1), time.Now().Add(-time.Hour))
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "initial bodies cached", func() bool { return cachedBodies(t, env, acc.Id) == 2 })
+	f.failBodyUID.Store(1)
+	if _, err := env.App.Deps.DB.Exec(`UPDATE mail_messages SET subject = '', from_address = '', snippet = '', body_json = '{"to":[],"cc":[],"text":"","attachments":[]}' WHERE account_id = ?`, acc.Id); err != nil {
+		t.Fatal(err)
+	}
+	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/accounts/%d/sync", acc.Id), nil, nil)
+	eventually(t, "later message restored despite first body failure", func() bool {
+		var subject, body string
+		return env.App.Deps.DB.QueryRow("SELECT subject, body_json FROM mail_messages WHERE account_id = ? AND uid = 2", acc.Id).Scan(&subject, &body) == nil && subject == "Following message" && strings.Contains(body, "Hi there")
+	})
+	if len(mailNotes(t, env)) != 0 {
+		t.Fatal("historical recovery sent notifications")
+	}
+}
+
+func TestIncompleteMIMEKeepsReadableBody(t *testing.T) {
+	_, m, _ := setup(t)
+	raw := "From: sender@example.com\r\nSubject: Partial\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=body\r\n\r\n--body\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>Readable despite missing closing boundary</p>"
+	text, hasHTML, err := mail.ParseBodyText(m, raw)
+	if err != nil || !hasHTML || !strings.Contains(text, "Readable despite missing closing boundary") {
+		t.Fatalf("usable body discarded: text=%q html=%v err=%v", text, hasHTML, err)
+	}
+	_, _, err = mail.ParseBodyText(m, "From: sender@example.com\r\nContent-Type: multipart/mixed; boundary=body\r\n\r\n--body")
+	if err == nil {
+		t.Fatal("incomplete empty body must remain an error")
 	}
 }

@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"crypto/tls"
+	"strings"
 	"time"
 )
 
@@ -38,3 +39,8 @@ func CleanText(s string) string { return cleanText(s) }
 
 // ArchiveOnServer tests the guard for an already selected All Mail folder.
 var ArchiveOnServer = archiveOnServer
+
+func ParseBodyText(m *Module, raw string) (string, bool, error) {
+	body, err := m.parseMessage(context.Background(), strings.NewReader(raw), "parse-test")
+	return body.Text, body.HTML != nil, err
+}

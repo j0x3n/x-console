@@ -46,6 +46,7 @@ type fakeIMAP struct {
 	lossy               atomic.Bool  // 设上以后 STORE 不保存任何状态
 	bodyFetches         atomic.Int32
 	failBodies          atomic.Bool
+	failBodyUID         atomic.Uint32
 	failEnvelope        atomic.Bool
 	failHeaderFields    atomic.Bool
 	reorderHeaderFields atomic.Bool
@@ -129,6 +130,11 @@ func (s *session) Fetch(w *imapserver.FetchWriter, set imap.NumSet, options *ima
 			}
 			if s.f.failBodies.Load() {
 				return &imap.Error{Type: imap.StatusResponseTypeNo, Text: "body fetch failed"}
+			}
+			if uid := imap.UID(s.f.failBodyUID.Load()); uid != 0 {
+				if uids, ok := set.(imap.UIDSet); ok && uids.Contains(uid) {
+					return &imap.Error{Type: imap.StatusResponseTypeNo, Text: "one body unavailable"}
+				}
 			}
 		}
 	}

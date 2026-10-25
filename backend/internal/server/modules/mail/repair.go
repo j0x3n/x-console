@@ -80,7 +80,16 @@ func (m *Module) repairSummaryBatch(ctx context.Context, c *imapclient.Client, a
 			return cursor, false, err
 		}
 		if err := m.repairMessageBody(ctx, c, message); err != nil {
-			return cursor, false, err
+			if ctx.Err() != nil {
+				return cursor, false, ctx.Err()
+			}
+			select {
+			case <-c.Closed():
+				return cursor, false, err
+			default:
+			}
+			// A malformed message must not block metadata or later bodies.
+			m.d.Log.Warn("mail: repair body", "account", accountID, "uid", b.UID, "err", err)
 		}
 	}
 	if changed {

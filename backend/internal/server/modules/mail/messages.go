@@ -302,6 +302,10 @@ func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (
 			break
 		}
 		if err != nil && (p == nil || !message.IsUnknownCharset(err)) {
+			if (errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF)) && (body.Text != "" || htmlBody != "") {
+				m.d.Log.Warn("mail: incomplete MIME after readable body", "err", err)
+				break
+			}
 			return body, err
 		}
 		var (
@@ -332,14 +336,14 @@ func (m *Module) parseMessage(ctx context.Context, r io.Reader, prefix string) (
 			switch {
 			case mediaType == "text/plain" && body.Text == "":
 				b, err := io.ReadAll(io.LimitReader(p.Body, maxTextBytes))
-				if err != nil {
+				if err != nil && (!errors.Is(err, io.ErrUnexpectedEOF) || len(b) == 0) {
 					return body, err
 				}
 				body.Text = strings.ToValidUTF8(string(b), "")
 				continue
 			case mediaType == "text/html" && htmlBody == "":
 				b, err := io.ReadAll(io.LimitReader(p.Body, maxHTMLBytes))
-				if err != nil {
+				if err != nil && (!errors.Is(err, io.ErrUnexpectedEOF) || len(b) == 0) {
 					return body, err
 				}
 				htmlBody = strings.ToValidUTF8(string(b), "")
