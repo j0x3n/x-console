@@ -389,6 +389,9 @@ try {
       .getByRole("link", { name: "联系人", exact: true })
       .click();
     await page.waitForURL(`${base}/contacts`);
+    await page
+      .locator('.nav-merge a[href="/contacts"][aria-current="page"]')
+      .waitFor();
     assert.equal(
       await page
         .locator(".nav-merge")
