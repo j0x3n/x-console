@@ -233,7 +233,11 @@ describe("B88 free columns", () => {
     expect(cols[0]).toEqual(["decisions", "traffic"]);
     expect(cols[2][cols[2].length - 1]).toBe("todos");
     const back = placeCard(moved, "schedule", 0, "decisions", 3);
-    expect(ids(arrange(back, 3))[0]).toEqual(["schedule", "decisions", "traffic"]);
+    expect(ids(arrange(back, 3))[0]).toEqual([
+      "schedule",
+      "decisions",
+      "traffic",
+    ]);
   });
   it("puts cards of a missing column into the last one", () => {
     const moved = placeCard(defaultLayout(), "todos", 3, null, 4);
@@ -256,7 +260,6 @@ describe("B88 free columns", () => {
   });
 });
 
-
 describe("B264 proxy traffic card layout", () => {
   it("appends to saved layouts and can be hidden", () => {
     const saved = [{ id: "todos", visible: true, order: 0 }];
@@ -264,7 +267,9 @@ describe("B264 proxy traffic card layout", () => {
     expect(layout[0].id).toBe("todos");
     expect(layout.at(-1)?.id).toBe("traffic");
     expect(layout.find((c) => c.id === "traffic")?.visible).toBe(true);
-    expect(toggleCard(layout, "traffic").find((c) => c.id === "traffic")?.visible).toBe(false);
+    expect(
+      toggleCard(layout, "traffic").find((c) => c.id === "traffic")?.visible,
+    ).toBe(false);
   });
   it("moves traffic to another column without duplication", () => {
     const moved = placeCard(defaultLayout(), "traffic", 1, "schedule", 2);

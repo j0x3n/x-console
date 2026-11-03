@@ -7,7 +7,12 @@ type Account = {
   user: string;
   today: Usage;
   month: Usage;
-  latest: null | { ts: number; active: number; upload_bps: number; download_bps: number };
+  latest: null | {
+    ts: number;
+    active: number;
+    upload_bps: number;
+    download_bps: number;
+  };
 };
 export type Traffic = { time: number; accounts: Account[] };
 export function trafficBytes(n: number) {
@@ -33,16 +38,37 @@ export default function TodayTrafficCard() {
           <div className="today-row" key={a.user}>
             <span className="today-row-main">
               <strong>{a.user}</strong>
-              <small>今日 ↑ {trafficBytes(a.today.upload)} ↓ {trafficBytes(a.today.download)}</small>
-              <small>本月 ↑ {trafficBytes(a.month.upload)} ↓ {trafficBytes(a.month.download)}</small>
-              <small>{fresh ? `↑ ${(l.upload_bps / 1e6).toFixed(2)} / ↓ ${(l.download_bps / 1e6).toFixed(2)} Mbps · ${l.active} 条隧道` : "暂无近期采样"}</small>
+              <small>
+                今日 ↑ {trafficBytes(a.today.upload)} ↓{" "}
+                {trafficBytes(a.today.download)}
+              </small>
+              <small>
+                本月 ↑ {trafficBytes(a.month.upload)} ↓{" "}
+                {trafficBytes(a.month.download)}
+              </small>
+              <small>
+                {fresh
+                  ? `↑ ${(l.upload_bps / 1e6).toFixed(2)} / ↓ ${(l.download_bps / 1e6).toFixed(2)} Mbps · ${l.active} 条隧道`
+                  : "暂无近期采样"}
+              </small>
             </span>
-            <span className="xc-badge">{a.user === "vip" ? "不限速" : "5 Mbps"}</span>
+            <span className="xc-badge">
+              {a.user === "vip" ? "不限速" : "5 Mbps"}
+            </span>
           </div>
         );
       })}
-      <div className="today-note">北京时间 · 每 10 秒采集 · 活动隧道不是在线人数</div>
-      <a className="today-row" href="https://audit.xcc.im/traffic/" target="_blank" rel="noopener noreferrer">查看完整流量记录（独立登录）</a>
+      <div className="today-note">
+        北京时间 · 每 10 秒采集 · 活动隧道不是在线人数
+      </div>
+      <a
+        className="today-row"
+        href="https://audit.xcc.im/traffic/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        查看完整流量记录（独立登录）
+      </a>
     </div>
   );
 }
