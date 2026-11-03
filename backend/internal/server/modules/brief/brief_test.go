@@ -427,6 +427,8 @@ func TestScheduledBriefIsSentOncePerDay(t *testing.T) {
 
 func TestPreviewSendSettingsAndWeather(t *testing.T) {
 	env, m, ws := setup(t)
+	clock := time.Date(2026, 10, 27, 10, 0, 0, 0, time.UTC)
+	brief.SetNow(m, func() time.Time { return clock })
 
 	var view api.BriefSettingsView
 	env.MustDo(http.MethodGet, "/briefs/settings", nil, &view)
@@ -474,8 +476,6 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 	}
 
 	// refresh=true skips the cache, but not more than once a minute.
-	clock := time.Date(2026, 10, 27, 10, 0, 0, 0, time.UTC)
-	brief.SetNow(m, func() time.Time { return clock })
 	env.MustDo(http.MethodGet, "/weather?refresh=true", nil, &w)
 	hits = ws.hits.Load()
 	env.MustDo(http.MethodGet, "/weather?refresh=true", nil, &w)

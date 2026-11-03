@@ -29,3 +29,12 @@ jobs:
           npx prettier --write src/features/overview/components/TodayTrafficCard.tsx src/features/overview/components/TodayTrafficCard.test.ts src/features/overview/today.test.ts
           npm run typecheck
           npx vitest run src/features/overview/components/TodayTrafficCard.test.ts src/features/overview/today.test.ts
+
+      - name: Export canonical formatting patch
+        if: always()
+        run: git diff --binary > formatting.patch
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: traffic-formatting-patch
+          path: formatting.patch
