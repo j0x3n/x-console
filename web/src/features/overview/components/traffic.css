@@ -19,7 +19,7 @@
 
 .traffic-compact-head,
 .traffic-compact-footer {
-  color: var(--xc-text-muted);
+  color: var(--xc-muted);
   font-size: 11px;
 }
 
