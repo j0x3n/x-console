@@ -167,7 +167,7 @@ describe("layout", () => {
     const base = defaultLayout();
     expect(
       columnCards(shiftCard(base, "decisions", -1), "main").map((c) => c.id),
-    ).toEqual(["decisions", "todos"]);
+    ).toEqual(["decisions", "todos", "traffic"]);
     expect(shiftCard(base, "todos", -1)).toBe(base);
     expect(toggleCard(base, "home").find((c) => c.id === "home")?.visible).toBe(
       false,
@@ -223,17 +223,17 @@ describe("B88 free columns", () => {
   const ids = (cols: { id: string }[][]) => cols.map((c) => c.map((x) => x.id));
   it("keeps the old arrangement when no card has a column", () => {
     const cols = arrange(defaultLayout(), 3, (c) => c.visible);
-    expect(cols[0].map((c) => c.id)).toEqual(["todos", "decisions"]);
+    expect(cols[0].map((c) => c.id)).toEqual(["todos", "decisions", "traffic"]);
     expect(cols[1].length + cols[2].length).toBeGreaterThan(0);
   });
   it("moves a main card to the right column and back", () => {
     const base = defaultLayout();
     const moved = placeCard(base, "todos", 2, null, 3);
     const cols = ids(arrange(moved, 3));
-    expect(cols[0]).toEqual(["decisions"]);
+    expect(cols[0]).toEqual(["decisions", "traffic"]);
     expect(cols[2][cols[2].length - 1]).toBe("todos");
     const back = placeCard(moved, "schedule", 0, "decisions", 3);
-    expect(ids(arrange(back, 3))[0]).toEqual(["schedule", "decisions"]);
+    expect(ids(arrange(back, 3))[0]).toEqual(["schedule", "decisions", "traffic"]);
   });
   it("puts cards of a missing column into the last one", () => {
     const moved = placeCard(defaultLayout(), "todos", 3, null, 4);
@@ -253,5 +253,23 @@ describe("B88 free columns", () => {
       "schedule",
       "todos",
     ]);
+  });
+});
+
+
+describe("B264 proxy traffic card layout", () => {
+  it("appends to saved layouts and can be hidden", () => {
+    const saved = [{ id: "todos", visible: true, order: 0 }];
+    const layout = normalizeLayout(saved);
+    expect(layout[0].id).toBe("todos");
+    expect(layout.at(-1)?.id).toBe("traffic");
+    expect(layout.find((c) => c.id === "traffic")?.visible).toBe(true);
+    expect(toggleCard(layout, "traffic").find((c) => c.id === "traffic")?.visible).toBe(false);
+  });
+  it("moves traffic to another column without duplication", () => {
+    const moved = placeCard(defaultLayout(), "traffic", 1, "schedule", 2);
+    const cols = arrange(moved, 2);
+    expect(cols[1][0].id).toBe("traffic");
+    expect(cols.flat().filter((c) => c.id === "traffic")).toHaveLength(1);
   });
 });

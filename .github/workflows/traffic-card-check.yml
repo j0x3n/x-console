@@ -2,7 +2,7 @@ name: Traffic homepage module check
 on:
   push:
     branches: [develop]
-    paths: ['.github/workflows/traffic-card-check.yml']
+    paths: ['.github/workflows/traffic-card-check.yml', 'web/src/features/overview/**', 'backend/internal/server/modules/dashboard/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +26,6 @@ jobs:
         working-directory: web
         run: |
           npm ci
-          npx prettier --write src/features/overview/components/TodayTrafficCard.tsx src/features/overview/components/TodayTrafficCard.test.ts
+          npx prettier --write src/features/overview/components/TodayTrafficCard.tsx src/features/overview/components/TodayTrafficCard.test.ts src/features/overview/today.test.ts
           npm run typecheck
           npx vitest run src/features/overview/components/TodayTrafficCard.test.ts src/features/overview/today.test.ts
