@@ -29,6 +29,7 @@ func New(d *module.Deps) (module.Module, error) {
 func (m *Module) Name() string { return "dashboard" }
 
 func (m *Module) Mount(r chi.Router) {
+	r.Get("/dashboard/traffic", m.traffic)
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
 }
 

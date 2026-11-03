@@ -21,6 +21,7 @@ export interface CardDef {
 
 /** 默认顺序就是这个数组的顺序。 */
 export const cardDefs: CardDef[] = [
+  { id: "traffic", title: "Proxy traffic", column: "main", weight: 3 },
   { id: "todos", title: "To do today", column: "main", module: "projects" },
   {
     id: "decisions",

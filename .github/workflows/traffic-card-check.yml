@@ -1,0 +1,28 @@
+name: Traffic homepage module check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check backend snapshot handler
+        working-directory: backend
+        run: |
+          gofmt -w internal/server/modules/dashboard/traffic.go internal/server/modules/dashboard/traffic_test.go
+          go test ./internal/server/modules/dashboard/...
+      - name: Check homepage module
+        working-directory: web
+        run: |
+          npm ci
+          npx prettier --write src/features/overview/components/TodayTrafficCard.tsx src/features/overview/components/TodayTrafficCard.test.ts
+          npm run typecheck
+          npx vitest run src/features/overview/components/TodayTrafficCard.test.ts src/features/overview/today.test.ts

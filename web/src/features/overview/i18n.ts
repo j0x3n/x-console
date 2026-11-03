@@ -1,6 +1,7 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  "Proxy traffic": "代理流量",
   // B90 天气
   Humidity: "湿度",
   "Chance of rain today": "今天降水概率",

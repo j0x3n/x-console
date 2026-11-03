@@ -47,6 +47,7 @@ import {
   cardModule,
 } from "./layout";
 import { greetingKey, summaryLine } from "./today";
+import TodayTrafficCard from "./components/TodayTrafficCard";
 import TodayNetworkCard from "../router/TodayNetworkCard";
 import TodayQuotasCard from "../quotas/TodayQuotasCard";
 import { useQuotaAccounts } from "../quotas/api";
@@ -70,6 +71,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
   habits: { body: () => <HabitsCard />, more: "/habits" },
   home: { body: () => <HomeCard />, more: "/home" },
+  traffic: { body: () => <TodayTrafficCard /> },
   network: { body: () => <TodayNetworkCard />, more: "/router" }, // B65
   quotas: { body: () => <TodayQuotasCard />, more: "/monitoring/quotas" }, // B111
   screentime: { body: () => <TodayScreenTimeCard />, more: "/screentime" }, // B116
