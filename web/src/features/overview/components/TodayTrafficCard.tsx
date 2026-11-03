@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../../../api/client";
 import { QueryState } from "./shared";
+import "./traffic.css";
 
 type Usage = { upload: number; download: number };
 type Account = {
@@ -30,44 +31,39 @@ export default function TodayTrafficCard() {
   if (q.isPending || q.isError) return <QueryState query={q} />;
   const d = q.data;
   return (
-    <div className="xc-list">
+    <div className="traffic-compact">
+      <div className="traffic-compact-row traffic-compact-head">
+        <span>账号</span>
+        <span>今日 / 本月</span>
+        <span>↑ / ↓ Mbps</span>
+      </div>
       {d.accounts.map((a) => {
         const l = a.latest;
         const fresh = l && Date.now() / 1000 - l.ts < 35;
         return (
-          <div className="today-row" key={a.user}>
-            <span className="today-row-main">
-              <strong>{a.user}</strong>
-              <small>
-                今日 ↑ {trafficBytes(a.today.upload)} ↓{" "}
-                {trafficBytes(a.today.download)}
-              </small>
-              <small>
-                本月 ↑ {trafficBytes(a.month.upload)} ↓{" "}
-                {trafficBytes(a.month.download)}
-              </small>
-              <small>
-                {fresh
-                  ? `↑ ${(l.upload_bps / 1e6).toFixed(2)} / ↓ ${(l.download_bps / 1e6).toFixed(2)} Mbps · ${l.active} 条隧道`
-                  : "暂无近期采样"}
-              </small>
+          <div className="traffic-compact-row" key={a.user}>
+            <strong title={a.user === "vip" ? "不限速" : "上下行各 5 Mbps"}>
+              {a.user}
+            </strong>
+            <span title="上传与下载合计">
+              {trafficBytes(a.today.upload + a.today.download)} /{" "}
+              {trafficBytes(a.month.upload + a.month.download)}
             </span>
-            <span className="xc-badge">
-              {a.user === "vip" ? "不限速" : "5 Mbps"}
+            <span title={fresh ? `${l.active} 条活动隧道` : "暂无近期采样"}>
+              {fresh
+                ? `${(l.upload_bps / 1e6).toFixed(2)} / ${(l.download_bps / 1e6).toFixed(2)}`
+                : "—"}
             </span>
           </div>
         );
       })}
-      <div className="today-note">
-        北京时间 · 每 10 秒采集 · 活动隧道不是在线人数
-      </div>
       <a
-        className="today-row"
-        href="https://audit.xcc.im/traffic/"
+        className="traffic-compact-footer"
+        href="https://audit.xcc.im/"
         target="_blank"
         rel="noopener noreferrer"
       >
-        查看完整流量记录（独立登录）
+        用量为上下行合计 · 完整统计 ↗
       </a>
     </div>
   );
